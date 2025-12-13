@@ -27,6 +27,7 @@ import FeatureContribution from "@/pages/FeatureContribution";
 import CookieConsentBanner from "@/components/common/CookieConsentBanner";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
+import VerifyEmail from "@/pages/VerifyEmail";
 import EditProfile from "@/pages/EditProfile";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminUsers from "@/pages/admin/AdminUsers";
@@ -71,6 +72,7 @@ function AppRoutes() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
         </Route>
 
         {/* Admin routes */}
