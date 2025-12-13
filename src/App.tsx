@@ -12,6 +12,7 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import PostDetails from "@/pages/PostDetails";
 import CreatePost from "@/pages/CreatePost";
+import EditPost from "@/pages/EditPost";
 import UserProfile from "@/pages/UserProfile";
 import Tags from "@/pages/Tags";
 import TagDetails from "@/pages/TagDetails";
@@ -101,6 +102,7 @@ function AppRoutes() {
         <Route element={<MainLayout />}>
           <Route path="/" element={<Feed />} />
           <Route path="/posts/new" element={<CreatePost />} />
+          <Route path="/posts/:slug/edit" element={<EditPost />} />
           <Route path="/posts/:slug" element={<PostDetails />} />
           <Route path="/users/:username" element={<UserProfile />} />
           <Route path="/profile/edit" element={<EditProfile />} />

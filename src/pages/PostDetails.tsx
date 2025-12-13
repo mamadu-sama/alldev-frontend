@@ -1,17 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronUp, ChevronDown, Eye, Pencil, Trash2, ArrowLeft, MessageSquare, Loader2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, Eye, Pencil, Trash2, ArrowLeft, MessageSquare, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { MarkdownContent } from '@/components/common/MarkdownContent';
 import { CommentItem } from '@/components/post/CommentItem';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/hooks/use-toast';
 import { postService } from '@/services/post.service';
+import { commentService } from '@/services/comment.service';
+import { voteService } from '@/services/vote.service';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { Post, Comment } from '@/types';
@@ -32,6 +42,8 @@ export default function PostDetails() {
   const [newComment, setNewComment] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('votes');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Load post from API
   useEffect(() => {
@@ -44,8 +56,12 @@ export default function PostDetails() {
         setPost(fetchedPost);
         setPostVotes(fetchedPost.votes);
         setUserVote(fetchedPost.userVote);
-        // TODO: Load comments from API when available
-        setComments([]);
+        
+        // Load comments
+        if (fetchedPost.id) {
+          const commentsResponse = await commentService.getComments(fetchedPost.id);
+          setComments(commentsResponse.data);
+        }
       } catch (error) {
         toast({
           title: 'Erro ao carregar post',
@@ -83,84 +99,159 @@ export default function PostDetails() {
   const isAuthor = user?.id === post.author.id;
   const hasAcceptedAnswer = comments.some(c => c.isAccepted);
 
-  const handleVote = (voteType: 'up' | 'down') => {
-    if (!isAuthenticated) {
+  const handleVote = async (voteType: 'up' | 'down') => {
+    if (!isAuthenticated || !post) {
       toast({ title: 'Faça login para votar', variant: 'destructive' });
       return;
     }
 
-    if (userVote === voteType) {
-      setPostVotes(voteType === 'up' ? postVotes - 1 : postVotes + 1);
-      setUserVote(null);
-    } else if (userVote) {
-      setPostVotes(voteType === 'up' ? postVotes + 2 : postVotes - 2);
-      setUserVote(voteType);
-    } else {
-      setPostVotes(voteType === 'up' ? postVotes + 1 : postVotes - 1);
-      setUserVote(voteType);
+    try {
+      const response = await voteService.votePost(post.id, voteType);
+      setPostVotes(response.votes);
+      setUserVote(response.userVote);
+    } catch (error) {
+      toast({
+        title: 'Erro ao votar',
+        description: 'Não foi possível registrar o voto. Tente novamente.',
+        variant: 'destructive',
+      });
     }
   };
 
-  const handleCommentVote = (commentId: string, voteType: 'up' | 'down') => {
+  const handleCommentVote = async (commentId: string, voteType: 'up' | 'down') => {
     if (!isAuthenticated) {
       toast({ title: 'Faça login para votar', variant: 'destructive' });
       return;
     }
 
-    setComments(comments.map(c => {
-      if (c.id !== commentId) return c;
+    try {
+      const response = await voteService.voteComment(commentId, voteType);
       
-      let newVotes = c.votes;
-      let newUserVote = c.userVote;
-
-      if (c.userVote === voteType) {
-        newVotes = voteType === 'up' ? c.votes - 1 : c.votes + 1;
-        newUserVote = null;
-      } else if (c.userVote) {
-        newVotes = voteType === 'up' ? c.votes + 2 : c.votes - 2;
-        newUserVote = voteType;
-      } else {
-        newVotes = voteType === 'up' ? c.votes + 1 : c.votes - 1;
-        newUserVote = voteType;
-      }
-
-      return { ...c, votes: newVotes, userVote: newUserVote };
-    }));
+      // Atualizar comentário localmente
+      setComments(comments.map(c => {
+        if (c.id !== commentId) return c;
+        return { ...c, votes: response.votes, userVote: response.userVote };
+      }));
+    } catch (error) {
+      toast({
+        title: 'Erro ao votar',
+        description: 'Não foi possível registrar o voto. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleAcceptAnswer = (commentId: string) => {
-    setComments(comments.map(c => ({
-      ...c,
-      isAccepted: c.id === commentId,
-    })));
-    toast({ title: 'Resposta aceita!', description: 'O autor ganhou +15 de reputação.' });
+  const handleAcceptAnswer = async (commentId: string) => {
+    if (!isAuthenticated) {
+      toast({ title: 'Faça login para aceitar respostas', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      await commentService.acceptComment(commentId);
+      
+      // Atualizar comentários localmente
+      setComments(comments.map(c => ({
+        ...c,
+        isAccepted: c.id === commentId,
+      })));
+      
+      // Atualizar post
+      if (post) {
+        setPost({ ...post, hasAcceptedAnswer: true });
+      }
+      
+      toast({ 
+        title: 'Resposta aceita!', 
+        description: 'O autor ganhou +25 de reputação e você ganhou +2.' 
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível aceitar a resposta.';
+      
+      toast({
+        title: 'Erro ao aceitar resposta',
+        description: errorMessage || 'Não foi possível aceitar a resposta.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleSubmitComment = async () => {
     if (!newComment.trim()) return;
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated || !user || !post) {
       toast({ title: 'Faça login para comentar', variant: 'destructive' });
       return;
     }
 
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
 
-    const comment = {
-      id: Date.now().toString(),
-      content: newComment,
-      postId: post.id,
-      author: user,
-      votes: 0,
-      userVote: null,
-      isAccepted: false,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const createdComment = await commentService.createComment(post.id, {
+        content: newComment,
+      });
 
-    setComments([...comments, comment]);
-    setNewComment('');
-    setIsSubmitting(false);
-    toast({ title: 'Comentário adicionado!' });
+      // Adicionar comentário à lista
+      setComments([...comments, createdComment]);
+      setNewComment('');
+      
+      toast({ title: 'Comentário adicionado!' });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível adicionar o comentário.';
+      
+      toast({
+        title: 'Erro ao adicionar comentário',
+        description: errorMessage || 'Não foi possível adicionar o comentário.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditPost = () => {
+    if (!post) return;
+    navigate(`/posts/${post.slug}/edit`);
+  };
+
+  const handleDeletePost = () => {
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeletePost = async () => {
+    if (!post) return;
+
+    setIsDeleting(true);
+
+    try {
+      await postService.deletePost(post.id);
+      
+      toast({ 
+        title: 'Post deletado!', 
+        description: 'Seu post foi removido com sucesso.' 
+      });
+      
+      navigate('/');
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível deletar o post.';
+      
+      toast({
+        title: 'Erro ao deletar post',
+        description: errorMessage || 'Não foi possível deletar o post.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+    }
   };
 
   // Sort comments
@@ -252,11 +343,16 @@ export default function PostDetails() {
             {/* Author actions */}
             {isAuthor && (
               <div className="flex gap-2 mt-4">
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button variant="outline" size="sm" className="gap-2" onClick={handleEditPost}>
                   <Pencil className="h-4 w-4" />
                   Editar
                 </Button>
-                <Button variant="outline" size="sm" className="gap-2 text-destructive hover:text-destructive">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 text-destructive hover:text-destructive"
+                  onClick={handleDeletePost}
+                >
                   <Trash2 className="h-4 w-4" />
                   Deletar
                 </Button>
@@ -329,6 +425,39 @@ export default function PostDetails() {
           ))}
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Confirmar Exclusão
+            </DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja deletar este post? Esta ação não pode ser desfeita.
+              Todos os comentários e votos associados também serão removidos.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeletePost}
+              disabled={isDeleting}
+            >
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Deletar Post
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
