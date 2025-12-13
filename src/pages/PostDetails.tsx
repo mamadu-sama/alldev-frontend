@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronUp, ChevronDown, Eye, Pencil, Trash2, ArrowLeft, MessageSquare } from 'lucide-react';
+import { ChevronUp, ChevronDown, Eye, Pencil, Trash2, ArrowLeft, MessageSquare, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -9,11 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card } from '@/components/ui/card';
 import { MarkdownContent } from '@/components/common/MarkdownContent';
 import { CommentItem } from '@/components/post/CommentItem';
-import { mockPosts, mockComments } from '@/lib/mockData';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/hooks/use-toast';
+import { postService } from '@/services/post.service';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import type { Post, Comment } from '@/types';
 
 type SortOption = 'votes' | 'recent' | 'oldest';
 
@@ -23,13 +24,50 @@ export default function PostDetails() {
   const { user, isAuthenticated } = useAuthStore();
   const { toast } = useToast();
 
-  const post = mockPosts.find(p => p.slug === slug);
-  const [postVotes, setPostVotes] = useState(post?.votes || 0);
-  const [userVote, setUserVote] = useState(post?.userVote);
-  const [comments, setComments] = useState(mockComments[post?.id || ''] || []);
+  const [post, setPost] = useState<Post | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [postVotes, setPostVotes] = useState(0);
+  const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('votes');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load post from API
+  useEffect(() => {
+    const loadPost = async () => {
+      if (!slug) return;
+
+      try {
+        setIsLoading(true);
+        const fetchedPost = await postService.getPostBySlug(slug);
+        setPost(fetchedPost);
+        setPostVotes(fetchedPost.votes);
+        setUserVote(fetchedPost.userVote);
+        // TODO: Load comments from API when available
+        setComments([]);
+      } catch (error) {
+        toast({
+          title: 'Erro ao carregar post',
+          description: 'Não foi possível carregar o post. Tente novamente.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPost();
+  }, [slug, toast]);
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin mb-4" />
+        <p className="text-muted-foreground">Carregando post...</p>
+      </div>
+    );
+  }
 
   if (!post) {
     return (

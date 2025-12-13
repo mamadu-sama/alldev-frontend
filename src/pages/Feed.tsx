@@ -1,19 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, TrendingUp, Clock, HelpCircle } from 'lucide-react';
+import { Plus, TrendingUp, Clock, HelpCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PostCard } from '@/components/post/PostCard';
-import { mockPosts } from '@/lib/mockData';
 import { useAuthStore } from '@/stores/authStore';
-import type { PostFilter } from '@/types';
+import { postService } from '@/services/post.service';
+import { useToast } from '@/hooks/use-toast';
+import type { PostFilter, Post } from '@/types';
 
 export default function Feed() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentFilter = (searchParams.get('filter') as PostFilter) || 'recent';
   const { isAuthenticated } = useAuthStore();
+  const { toast } = useToast();
 
-  const [posts, setPosts] = useState(mockPosts);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load posts from API
+  useEffect(() => {
+    const loadPosts = async () => {
+      try {
+        setIsLoading(true);
+        const response = await postService.getPosts(1, 50, currentFilter);
+        setPosts(response.data);
+      } catch (error) {
+        toast({
+          title: 'Erro ao carregar posts',
+          description: 'Não foi possível carregar os posts. Tente novamente.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPosts();
+  }, [currentFilter, toast]);
 
   const handleFilterChange = (filter: string) => {
     setSearchParams({ filter });
@@ -110,7 +134,12 @@ export default function Feed() {
 
       {/* Posts list */}
       <div className="space-y-4">
-        {filteredPosts.length > 0 ? (
+        {isLoading ? (
+          <div className="text-center py-12">
+            <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin mb-4" />
+            <p className="text-muted-foreground">Carregando posts...</p>
+          </div>
+        ) : filteredPosts.length > 0 ? (
           filteredPosts.map((post, index) => (
             <div 
               key={post.id} 
