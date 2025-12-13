@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { authService } from '@/services/auth.service';
 
 const resetPasswordSchema = z.object({
   password: z
@@ -65,21 +66,31 @@ export default function ResetPassword() {
 
     setIsLoading(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setIsSuccess(true);
-    setIsLoading(false);
-    
-    toast({
-      title: 'Senha redefinida!',
-      description: 'Sua senha foi alterada com sucesso.',
-    });
+    try {
+      const response = await authService.resetPassword(token, data.password);
+      
+      if (response.success) {
+        setIsSuccess(true);
+        
+        toast({
+          title: 'Senha redefinida!',
+          description: 'Sua senha foi alterada com sucesso.',
+        });
 
-    // Redirect to login after 3 seconds
-    setTimeout(() => {
-      navigate('/login');
-    }, 3000);
+        // Redirect to login after 3 seconds
+        setTimeout(() => {
+          navigate('/login');
+        }, 3000);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao redefinir senha',
+        description: error.response?.data?.error?.message || 'O link pode ter expirado. Solicite um novo.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!token) {

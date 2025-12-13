@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { authService } from '@/services/auth.service';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -33,16 +34,25 @@ export default function ForgotPassword() {
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setIsLoading(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setIsEmailSent(true);
-    setIsLoading(false);
-    
-    toast({
-      title: 'Email enviado!',
-      description: 'Verifique sua caixa de entrada para redefinir sua senha.',
-    });
+    try {
+      const response = await authService.forgotPassword(data.email);
+      
+      if (response.success) {
+        setIsEmailSent(true);
+        toast({
+          title: 'Email enviado!',
+          description: 'Verifique sua caixa de entrada para redefinir sua senha.',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao enviar email',
+        description: error.response?.data?.error?.message || 'Erro ao processar sua solicitação. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isEmailSent) {

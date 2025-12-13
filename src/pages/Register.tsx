@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/authStore';
-import type { User as UserType } from '@/types';
+import { authService } from '@/services/auth.service';
 
 const registerSchema = z.object({
   username: z
@@ -47,31 +47,29 @@ export default function Register() {
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Create new user
-    const newUser: UserType = {
-      id: Date.now().toString(),
-      username: data.username,
-      email: data.email,
-      avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.username}`,
-      bio: '',
-      skills: [],
-      reputation: 0,
-      level: 'Novato',
-      createdAt: new Date().toISOString(),
-    };
-    
-    login(newUser, 'mock-jwt-token');
-    
-    toast({
-      title: 'Conta criada com sucesso!',
-      description: `Bem-vindo à comunidade, ${data.username}!`,
-    });
-    
-    setIsLoading(false);
-    navigate('/');
+    try {
+      const { username, email, password } = data;
+      const response = await authService.register({ username, email, password });
+      
+      if (response.success) {
+        toast({
+          title: 'Conta criada com sucesso!',
+          description: response.data.message || `Bem-vindo à comunidade, ${response.data.user.username}! Faça login para começar.`,
+        });
+        
+        // Redirect to login page
+        navigate('/login');
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error?.message || 'Erro ao criar conta. Tente novamente.';
+      toast({
+        title: 'Erro ao criar conta',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

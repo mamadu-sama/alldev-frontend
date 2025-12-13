@@ -1,20 +1,27 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { useAuthStore } from '@/stores/authStore';
-import { currentUser } from '@/lib/mockData';
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { useAuthStore } from "@/stores/authStore";
+import { authService } from "@/services/auth.service";
 
 const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  email: z.string().email("Email inválido"),
+  password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -36,20 +43,31 @@ export default function Login() {
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock login - in real app, call API
-    login(currentUser, 'mock-jwt-token');
-    
-    toast({
-      title: 'Login realizado com sucesso!',
-      description: `Bem-vindo de volta, ${currentUser.username}!`,
-    });
-    
-    setIsLoading(false);
-    navigate('/');
+
+    try {
+      const response = await authService.login(data);
+
+      // Store tokens
+      login(response.user, response.accessToken);
+      localStorage.setItem("refreshToken", response.refreshToken);
+
+      toast({
+        title: "Login realizado com sucesso!",
+        description: `Bem-vindo de volta, ${response.user.username}!`,
+      });
+
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Erro ao fazer login",
+        description:
+          error.response?.data?.error?.message ||
+          "Verifique suas credenciais e tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -71,7 +89,7 @@ export default function Login() {
                 type="email"
                 placeholder="seu@email.com"
                 className="pl-10"
-                {...register('email')}
+                {...register("email")}
               />
             </div>
             {errors.email && (
@@ -93,10 +111,10 @@ export default function Login() {
               <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 id="password"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••••"
                 className="pl-10 pr-10"
-                {...register('password')}
+                {...register("password")}
               />
               <Button
                 type="button"
@@ -113,7 +131,9 @@ export default function Login() {
               </Button>
             </div>
             {errors.password && (
-              <p className="text-sm text-destructive">{errors.password.message}</p>
+              <p className="text-sm text-destructive">
+                {errors.password.message}
+              </p>
             )}
           </div>
         </CardContent>
@@ -128,8 +148,11 @@ export default function Login() {
             Entrar
           </Button>
           <p className="text-sm text-muted-foreground text-center">
-            Não tem uma conta?{' '}
-            <Link to="/register" className="text-primary hover:underline font-medium">
+            Não tem uma conta?{" "}
+            <Link
+              to="/register"
+              className="text-primary hover:underline font-medium"
+            >
               Cadastre-se
             </Link>
           </p>
