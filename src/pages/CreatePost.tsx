@@ -1,29 +1,29 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { ArrowLeft, Eye, Edit, X, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MarkdownContent } from '@/components/common/MarkdownContent';
-import { mockTags } from '@/lib/mockData';
-import { useAuthStore } from '@/stores/authStore';
-import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { ArrowLeft, Eye, Edit, X, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MarkdownContent } from "@/components/common/MarkdownContent";
+import { useAuthStore } from "@/stores/authStore";
+import { useToast } from "@/hooks/use-toast";
+import { postService } from "@/services/post.service";
+import { tagService } from "@/services/tag.service";
+import type { Tag } from "@/types";
 
 const postSchema = z.object({
   title: z
     .string()
-    .min(10, 'Título deve ter no mínimo 10 caracteres')
-    .max(200, 'Título deve ter no máximo 200 caracteres'),
-  content: z
-    .string()
-    .min(30, 'Conteúdo deve ter no mínimo 30 caracteres'),
+    .min(10, "Título deve ter no mínimo 10 caracteres")
+    .max(200, "Título deve ter no máximo 200 caracteres"),
+  content: z.string().min(30, "Conteúdo deve ter no mínimo 30 caracteres"),
 });
 
 type PostFormData = z.infer<typeof postSchema>;
@@ -32,10 +32,12 @@ export default function CreatePost() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
   const { toast } = useToast();
-  
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [tagSearch, setTagSearch] = useState('');
+
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingTags, setIsLoadingTags] = useState(true);
 
   const {
     register,
@@ -45,57 +47,98 @@ export default function CreatePost() {
   } = useForm<PostFormData>({
     resolver: zodResolver(postSchema),
     defaultValues: {
-      title: '',
-      content: '',
+      title: "",
+      content: "",
     },
   });
 
-  const content = watch('content');
+  const content = watch("content");
+
+  // Load tags from API
+  useEffect(() => {
+    const loadTags = async () => {
+      try {
+        const fetchedTags = await tagService.getTags("popular");
+        setTags(fetchedTags);
+      } catch (error) {
+        toast({
+          title: "Erro ao carregar tags",
+          description: "Não foi possível carregar as tags. Tente novamente.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingTags(false);
+      }
+    };
+
+    loadTags();
+  }, [toast]);
 
   if (!isAuthenticated) {
-    navigate('/login');
+    navigate("/login");
     return null;
   }
 
-  const filteredTags = mockTags.filter(
-    tag =>
+  const selectedTags = tags.filter((tag) => selectedTagIds.includes(tag.id));
+  const filteredTags = tags.filter(
+    (tag) =>
       tag.name.toLowerCase().includes(tagSearch.toLowerCase()) &&
-      !selectedTags.includes(tag.name)
+      !selectedTagIds.includes(tag.id)
   );
 
-  const handleAddTag = (tagName: string) => {
-    if (selectedTags.length >= 5) {
-      toast({ title: 'Máximo de 5 tags', variant: 'destructive' });
+  const handleAddTag = (tagId: string) => {
+    if (selectedTagIds.length >= 5) {
+      toast({ title: "Máximo de 5 tags", variant: "destructive" });
       return;
     }
-    setSelectedTags([...selectedTags, tagName]);
-    setTagSearch('');
+    setSelectedTagIds([...selectedTagIds, tagId]);
+    setTagSearch("");
   };
 
-  const handleRemoveTag = (tagName: string) => {
-    setSelectedTags(selectedTags.filter(t => t !== tagName));
+  const handleRemoveTag = (tagId: string) => {
+    setSelectedTagIds(selectedTagIds.filter((id) => id !== tagId));
   };
 
   const onSubmit = async (data: PostFormData) => {
-    if (selectedTags.length === 0) {
-      toast({ title: 'Adicione pelo menos uma tag', variant: 'destructive' });
+    if (selectedTagIds.length === 0) {
+      toast({ title: "Adicione pelo menos uma tag", variant: "destructive" });
       return;
     }
 
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Generate slug
-    const slug = data.title
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+    try {
+      const post = await postService.createPost({
+        title: data.title,
+        content: data.content,
+        tagIds: selectedTagIds,
+      });
 
-    toast({ title: 'Post publicado com sucesso!' });
-    setIsSubmitting(false);
-    navigate(`/posts/${slug}`);
+      toast({
+        title: "Post publicado com sucesso!",
+        description: "Sua pergunta foi publicada na comunidade.",
+      });
+
+      navigate(`/posts/${post.slug}`);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && "response" in error
+          ? (
+              error as {
+                response?: { data?: { error?: { message?: string } } };
+              }
+            ).response?.data?.error?.message
+          : "Não foi possível publicar o post. Tente novamente.";
+
+      toast({
+        title: "Erro ao publicar post",
+        description:
+          errorMessage || "Não foi possível publicar o post. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -120,7 +163,7 @@ export default function CreatePost() {
           <Input
             id="title"
             placeholder="Ex: Como otimizar performance em aplicações React?"
-            {...register('title')}
+            {...register("title")}
             className="text-lg"
           />
           {errors.title && (
@@ -161,7 +204,7 @@ Descreva o que já tentou fazer
 
 ## Resultado esperado
 O que você espera que aconteça"
-                {...register('content')}
+                {...register("content")}
                 className="min-h-80 font-mono text-sm"
               />
             </TabsContent>
@@ -188,15 +231,15 @@ O que você espera que aconteça"
         <div className="space-y-2">
           <Label>Tags</Label>
           <div className="flex flex-wrap gap-2 mb-2">
-            {selectedTags.map(tag => (
-              <Badge key={tag} variant="tag" className="gap-1 pr-1">
-                {tag}
+            {selectedTags.map((tag) => (
+              <Badge key={tag.id} variant="tag" className="gap-1 pr-1">
+                {tag.name}
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   className="h-4 w-4 p-0 hover:bg-transparent"
-                  onClick={() => handleRemoveTag(tag)}
+                  onClick={() => handleRemoveTag(tag.id)}
                 >
                   <X className="h-3 w-3" />
                 </Button>
@@ -208,19 +251,21 @@ O que você espera que aconteça"
               placeholder="Buscar tags..."
               value={tagSearch}
               onChange={(e) => setTagSearch(e.target.value)}
-              disabled={selectedTags.length >= 5}
+              disabled={selectedTagIds.length >= 5 || isLoadingTags}
             />
             {tagSearch && filteredTags.length > 0 && (
               <Card className="absolute top-full left-0 right-0 z-10 mt-1 p-2 max-h-48 overflow-y-auto">
-                {filteredTags.map(tag => (
+                {filteredTags.map((tag) => (
                   <button
                     key={tag.id}
                     type="button"
                     className="w-full text-left px-3 py-2 rounded-md hover:bg-muted flex items-center justify-between"
-                    onClick={() => handleAddTag(tag.name)}
+                    onClick={() => handleAddTag(tag.id)}
                   >
                     <span>{tag.name}</span>
-                    <span className="text-xs text-muted-foreground">{tag.postCount} posts</span>
+                    <span className="text-xs text-muted-foreground">
+                      {tag.postCount} posts
+                    </span>
                   </button>
                 ))}
               </Card>
