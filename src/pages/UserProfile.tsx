@@ -1,23 +1,89 @@
-import { useParams, Link } from 'react-router-dom';
-import { Calendar, Github, Linkedin, Twitter, Globe, Pencil, MessageSquare, CheckCircle, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Calendar, Github, Linkedin, Twitter, Globe, Pencil, MessageSquare, CheckCircle, FileText, Loader2 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PostCard } from '@/components/post/PostCard';
-import { mockUsers, mockPosts } from '@/lib/mockData';
 import { useAuthStore } from '@/stores/authStore';
+import { useToast } from '@/hooks/use-toast';
+import { userService } from '@/services/user.service';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import type { User, Post } from '@/types';
 
 export default function UserProfile() {
-  const { username } = useParams();
+  const { username } = useParams<{ username: string }>();
+  const navigate = useNavigate();
   const { user: currentUser } = useAuthStore();
+  const { toast } = useToast();
 
-  const user = mockUsers.find(u => u.username === username);
-  const userPosts = mockPosts.filter(p => p.author.username === username);
+  const [user, setUser] = useState<User | null>(null);
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+
   const isOwnProfile = currentUser?.username === username;
+
+  // Load user data
+  useEffect(() => {
+    const loadUser = async () => {
+      if (!username) {
+        navigate('/');
+        return;
+      }
+
+      try {
+        setIsLoadingUser(true);
+        const fetchedUser = await userService.getUserByUsername(username);
+        setUser(fetchedUser);
+      } catch (error) {
+        toast({
+          title: 'Erro ao carregar perfil',
+          description: 'Não foi possível carregar o perfil do usuário.',
+          variant: 'destructive',
+        });
+        navigate('/');
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+
+    loadUser();
+  }, [username, navigate, toast]);
+
+  // Load user posts
+  useEffect(() => {
+    const loadPosts = async () => {
+      if (!username) return;
+
+      try {
+        setIsLoadingPosts(true);
+        const response = await userService.getUserPosts(username, 1, 50);
+        setUserPosts(response.data);
+      } catch (error) {
+        toast({
+          title: 'Erro ao carregar posts',
+          description: 'Não foi possível carregar os posts do usuário.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoadingPosts(false);
+      }
+    };
+
+    loadPosts();
+  }, [username, toast]);
+
+  if (isLoadingUser) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -33,11 +99,11 @@ export default function UserProfile() {
   const getInitials = (name: string) => name.slice(0, 2).toUpperCase();
   const joinDate = format(new Date(user.createdAt), "MMMM 'de' yyyy", { locale: ptBR });
 
-  // Mock stats
+  // Stats from user object
   const stats = {
-    posts: userPosts.length,
-    comments: 42,
-    accepted: 15,
+    posts: user.stats?.posts || 0,
+    comments: user.stats?.comments || 0,
+    accepted: user.stats?.acceptedAnswers || 0,
   };
 
   return (
@@ -50,7 +116,7 @@ export default function UserProfile() {
         <CardContent className="relative pt-0 pb-6">
           {/* Avatar */}
           <Avatar size="2xl" className="-mt-16 border-4 border-card">
-            <AvatarImage src={user.avatarUrl} alt={user.username} />
+            <AvatarImage src={user.avatarUrl || undefined} alt={user.username} />
             <AvatarFallback className="text-2xl">{getInitials(user.username)}</AvatarFallback>
           </Avatar>
 
@@ -94,7 +160,7 @@ export default function UserProfile() {
           </div>
 
           {/* Skills */}
-          {user.skills.length > 0 && (
+          {user.skills && user.skills.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               {user.skills.map((skill, i) => (
                 <Badge key={i} variant="tag">{skill}</Badge>
@@ -178,7 +244,11 @@ export default function UserProfile() {
         </TabsList>
 
         <TabsContent value="posts" className="mt-4 space-y-4">
-          {userPosts.length > 0 ? (
+          {isLoadingPosts ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : userPosts.length > 0 ? (
             userPosts.map(post => (
               <PostCard key={post.id} post={post} />
             ))
