@@ -1,20 +1,31 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Search, Menu, X, Sun, Moon, LogOut, User, Settings, Code2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Bell,
+  Search,
+  Menu,
+  X,
+  Sun,
+  Moon,
+  LogOut,
+  User,
+  Settings,
+  Code2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { useAuthStore } from '@/stores/authStore';
-import { useThemeStore } from '@/stores/themeStore';
-import { mockNotifications } from '@/lib/mockData';
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { useAuthStore } from "@/stores/authStore";
+import { useThemeStore } from "@/stores/themeStore";
+import { mockNotifications } from "@/lib/mockData";
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -22,7 +33,7 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
@@ -38,7 +49,7 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
 
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate("/");
   };
 
   const getInitials = (username: string) => {
@@ -55,14 +66,16 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
           className="lg:hidden"
           onClick={onMenuToggle}
         >
-          {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {isSidebarOpen ? (
+            <X className="h-5 w-5" />
+          ) : (
+            <Menu className="h-5 w-5" />
+          )}
         </Button>
 
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary">
-            <Code2 className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <img src="/logo.png" alt="Logo" className="h-9 w-9 object-contain" />
           <span className="hidden sm:inline-block">
             <span className="text-primary">All</span>
             <span className="text-foreground">dev</span>
@@ -92,7 +105,7 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
             onClick={toggleTheme}
             className="hidden sm:inline-flex"
           >
-            {theme === 'dark' ? (
+            {theme === "dark" ? (
               <Sun className="h-5 w-5" />
             ) : (
               <Moon className="h-5 w-5" />
@@ -116,7 +129,11 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                 <DropdownMenuContent align="end" className="w-80 bg-popover">
                   <div className="flex items-center justify-between p-3 border-b border-border">
                     <span className="font-semibold">Notificações</span>
-                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs text-muted-foreground"
+                    >
                       Marcar todas como lidas
                     </Button>
                   </div>
@@ -125,15 +142,26 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                       <DropdownMenuItem
                         key={notification.id}
                         className={`flex flex-col items-start gap-1 p-3 cursor-pointer ${
-                          !notification.read ? 'bg-primary/5' : ''
+                          !notification.read ? "bg-primary/5" : ""
                         }`}
-                        onClick={() => notification.relatedPostSlug && navigate(`/posts/${notification.relatedPostSlug}`)}
+                        onClick={() =>
+                          notification.relatedPostSlug &&
+                          navigate(`/posts/${notification.relatedPostSlug}`)
+                        }
                       >
-                        <span className={`text-sm ${!notification.read ? 'font-medium' : 'text-muted-foreground'}`}>
+                        <span
+                          className={`text-sm ${
+                            !notification.read
+                              ? "font-medium"
+                              : "text-muted-foreground"
+                          }`}
+                        >
                           {notification.message}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(notification.createdAt).toLocaleDateString('pt-BR')}
+                          {new Date(notification.createdAt).toLocaleDateString(
+                            "pt-BR"
+                          )}
                         </span>
                       </DropdownMenuItem>
                     ))}
@@ -141,7 +169,7 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="justify-center text-primary cursor-pointer"
-                    onClick={() => navigate('/notifications')}
+                    onClick={() => navigate("/notifications")}
                   >
                     Ver todas
                   </DropdownMenuItem>
@@ -151,10 +179,15 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
               {/* User menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                  <Button
+                    variant="ghost"
+                    className="relative h-9 w-9 rounded-full"
+                  >
                     <Avatar size="sm">
                       <AvatarImage src={user.avatarUrl} alt={user.username} />
-                      <AvatarFallback>{getInitials(user.username)}</AvatarFallback>
+                      <AvatarFallback>
+                        {getInitials(user.username)}
+                      </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
@@ -162,12 +195,17 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                   <div className="flex items-center gap-3 p-3">
                     <Avatar>
                       <AvatarImage src={user.avatarUrl} alt={user.username} />
-                      <AvatarFallback>{getInitials(user.username)}</AvatarFallback>
+                      <AvatarFallback>
+                        {getInitials(user.username)}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
                       <span className="font-medium">{user.username}</span>
                       <div className="flex items-center gap-1">
-                        <Badge variant="level" className="text-[10px] px-1.5 py-0">
+                        <Badge
+                          variant="level"
+                          className="text-[10px] px-1.5 py-0"
+                        >
                           {user.level}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
@@ -177,24 +215,29 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate(`/users/${user.username}`)}>
+                  <DropdownMenuItem
+                    onClick={() => navigate(`/users/${user.username}`)}
+                  >
                     <User className="mr-2 h-4 w-4" />
                     Meu Perfil
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/profile/edit')}>
+                  <DropdownMenuItem onClick={() => navigate("/profile/edit")}>
                     <Settings className="mr-2 h-4 w-4" />
                     Editar Perfil
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={toggleTheme} className="sm:hidden">
-                    {theme === 'dark' ? (
+                    {theme === "dark" ? (
                       <Sun className="mr-2 h-4 w-4" />
                     ) : (
                       <Moon className="mr-2 h-4 w-4" />
                     )}
-                    {theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+                    {theme === "dark" ? "Modo Claro" : "Modo Escuro"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-destructive focus:text-destructive"
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
                     Sair
                   </DropdownMenuItem>
@@ -203,10 +246,10 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
             </>
           ) : (
             <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => navigate('/login')}>
+              <Button variant="ghost" onClick={() => navigate("/login")}>
                 Entrar
               </Button>
-              <Button variant="gradient" onClick={() => navigate('/register')}>
+              <Button variant="gradient" onClick={() => navigate("/register")}>
                 Cadastrar
               </Button>
             </div>
