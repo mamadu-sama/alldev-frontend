@@ -1,17 +1,23 @@
-import api from './api';
-import { Notification, PaginatedResponse } from '@/types';
+import api from "./api";
+import { Notification, PaginatedResponse } from "@/types";
 
 export const notificationService = {
   async getNotifications(
     page: number = 1,
     limit: number = 20,
     unreadOnly: boolean = false
-  ): Promise<PaginatedResponse<Notification> & { meta: { unreadCount: number } }> {
-    const response = await api.get('/notifications', {
+  ): Promise<
+    PaginatedResponse<Notification> & { meta: { unreadCount: number } }
+  > {
+    const response = await api.get("/notifications", {
       params: { page, limit, unreadOnly },
     });
     return {
       data: response.data.data,
+      total: response.data.total,
+      page: response.data.page,
+      limit: response.data.limit,
+      hasMore: response.data.hasMore,
       meta: response.data.meta,
     };
   },
@@ -22,8 +28,6 @@ export const notificationService = {
   },
 
   async markAllAsRead(): Promise<void> {
-    await api.post('/notifications/read-all');
+    await api.post("/notifications/read-all");
   },
 };
-
-

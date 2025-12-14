@@ -21,6 +21,7 @@ export interface LoginResponse {
     skills: string[];
     reputation: number;
     level: string;
+    roles?: string[]; // Roles: USER, MODERATOR, ADMIN
     isVerified: boolean;
     createdAt: string;
   };

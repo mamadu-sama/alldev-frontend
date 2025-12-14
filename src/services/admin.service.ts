@@ -1,60 +1,66 @@
-import api from './api';
+import api from "./api";
+
+export interface AdminStatistics {
+  users: {
+    total: number;
+    active: number;
+    recentWeek: number;
+  };
+  posts: {
+    total: number;
+    recentWeek: number;
+  };
+  comments: {
+    total: number;
+  };
+  tags: {
+    total: number;
+  };
+  reports: {
+    pending: number;
+  };
+  views: {
+    total: number;
+  };
+}
+
+export interface RecentPost {
+  id: string;
+  title: string;
+  slug: string;
+  createdAt: string;
+  author: {
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+  };
+  _count: {
+    comments: number;
+  };
+}
+
+export interface RecentUser {
+  id: string;
+  username: string;
+  email: string;
+  avatarUrl: string | null;
+  level: string;
+  createdAt: string;
+}
 
 export const adminService = {
-  async getAllUsers(page: number = 1, limit: number = 50) {
-    const response = await api.get('/admin/users', {
-      params: { page, limit },
-    });
-    return {
-      data: response.data.data,
-      meta: response.data.meta,
-    };
-  },
-
-  async updateUserRole(userId: string, roles: string[]) {
-    const response = await api.patch(`/admin/users/${userId}/role`, { roles });
+  async getStatistics(): Promise<AdminStatistics> {
+    const response = await api.get("/admin/statistics");
     return response.data.data;
   },
 
-  async banUser(userId: string, reason: string, duration?: number) {
-    const response = await api.post(`/admin/users/${userId}/ban`, {
-      reason,
-      duration,
-    });
-    return response.data;
-  },
-
-  async unbanUser(userId: string) {
-    const response = await api.post(`/admin/users/${userId}/unban`);
-    return response.data;
-  },
-
-  async deleteUser(userId: string) {
-    await api.delete(`/admin/users/${userId}`);
-  },
-
-  async getMaintenanceMode() {
-    const response = await api.get('/admin/maintenance');
+  async getRecentPosts(limit: number = 10): Promise<RecentPost[]> {
+    const response = await api.get(`/admin/recent-posts?limit=${limit}`);
     return response.data.data;
   },
 
-  async updateMaintenanceMode(
-    isActive: boolean,
-    message?: string,
-    allowedRoles?: string[]
-  ) {
-    const response = await api.post('/admin/maintenance', {
-      isActive,
-      message,
-      allowedRoles,
-    });
-    return response.data.data;
-  },
-
-  async getStatistics() {
-    const response = await api.get('/admin/statistics');
+  async getRecentUsers(limit: number = 10): Promise<RecentUser[]> {
+    const response = await api.get(`/admin/recent-users?limit=${limit}`);
     return response.data.data;
   },
 };
-
-

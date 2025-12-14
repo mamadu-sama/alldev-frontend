@@ -13,6 +13,7 @@ export interface User {
   };
   reputation: number;
   level: 'Novato' | 'Contribuidor' | 'Expert' | 'Guru';
+  roles?: string[]; // Roles: USER, MODERATOR, ADMIN
   createdAt: string;
 }
 

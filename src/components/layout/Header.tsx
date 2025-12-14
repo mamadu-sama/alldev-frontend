@@ -11,6 +11,7 @@ import {
   User,
   Settings,
   Code2,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -55,6 +56,8 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
   const getInitials = (username: string) => {
     return username.slice(0, 2).toUpperCase();
   };
+
+  const isAdmin = user?.roles?.includes('ADMIN');
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -225,6 +228,18 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                     <Settings className="mr-2 h-4 w-4" />
                     Editar Perfil
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => navigate("/admin")}
+                        className="text-primary focus:text-primary font-medium"
+                      >
+                        <Shield className="mr-2 h-4 w-4" />
+                        Painel Admin
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuItem onClick={toggleTheme} className="sm:hidden">
                     {theme === "dark" ? (
                       <Sun className="mr-2 h-4 w-4" />

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronUp, ChevronDown, Eye, Pencil, Trash2, ArrowLeft, MessageSquare, Loader2, AlertTriangle } from 'lucide-react';
+import { ChevronUp, ChevronDown, Eye, Pencil, Trash2, ArrowLeft, MessageSquare, Loader2, AlertTriangle, Flag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { MarkdownContent } from '@/components/common/MarkdownContent';
 import { CommentItem } from '@/components/post/CommentItem';
+import { ReportDialog } from '@/components/report/ReportDialog';
 import { useAuthStore } from '@/stores/authStore';
 import { useToast } from '@/hooks/use-toast';
 import { postService } from '@/services/post.service';
@@ -44,6 +45,8 @@ export default function PostDetails() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'comment'; id: string; title?: string; preview?: string } | null>(null);
 
   // Load post from API
   useEffect(() => {
@@ -139,6 +142,29 @@ export default function PostDetails() {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleReportComment = (commentId: string) => {
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return;
+    
+    setReportTarget({
+      type: 'comment',
+      id: commentId,
+      preview: comment.content.substring(0, 100),
+    });
+    setIsReportDialogOpen(true);
+  };
+
+  const handleReportPost = () => {
+    if (!post) return;
+    
+    setReportTarget({
+      type: 'post',
+      id: post.id,
+      title: post.title,
+    });
+    setIsReportDialogOpen(true);
   };
 
   const handleAcceptAnswer = async (commentId: string) => {
@@ -340,24 +366,37 @@ export default function PostDetails() {
               ))}
             </div>
 
-            {/* Author actions */}
-            {isAuthor && (
-              <div className="flex gap-2 mt-4">
-                <Button variant="outline" size="sm" className="gap-2" onClick={handleEditPost}>
-                  <Pencil className="h-4 w-4" />
-                  Editar
-                </Button>
+            {/* Actions */}
+            <div className="flex gap-2 mt-4 flex-wrap">
+              {isAuthor && (
+                <>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={handleEditPost}>
+                    <Pencil className="h-4 w-4" />
+                    Editar
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-2 text-destructive hover:text-destructive"
+                    onClick={handleDeletePost}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Deletar
+                  </Button>
+                </>
+              )}
+              {!isAuthor && isAuthenticated && (
                 <Button 
-                  variant="outline" 
+                  variant="ghost" 
                   size="sm" 
-                  className="gap-2 text-destructive hover:text-destructive"
-                  onClick={handleDeletePost}
+                  className="gap-2"
+                  onClick={handleReportPost}
                 >
-                  <Trash2 className="h-4 w-4" />
-                  Deletar
+                  <Flag className="h-4 w-4" />
+                  Denunciar
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </Card>
@@ -421,6 +460,7 @@ export default function PostDetails() {
               canAccept={!hasAcceptedAnswer}
               onVote={handleCommentVote}
               onAccept={handleAcceptAnswer}
+              onReport={isAuthenticated && user?.id !== comment.author.id ? handleReportComment : undefined}
             />
           ))}
         </div>
@@ -458,6 +498,21 @@ export default function PostDetails() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Report Dialog */}
+      {reportTarget && (
+        <ReportDialog
+          isOpen={isReportDialogOpen}
+          onClose={() => {
+            setIsReportDialogOpen(false);
+            setReportTarget(null);
+          }}
+          contentType={reportTarget.type}
+          contentId={reportTarget.id}
+          contentTitle={reportTarget.title}
+          contentPreview={reportTarget.preview}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ChevronUp, ChevronDown, Check, Pencil, Trash2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, Check, Pencil, Trash2, Flag } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ interface CommentItemProps {
   onAccept?: (commentId: string) => void;
   onEdit?: (commentId: string) => void;
   onDelete?: (commentId: string) => void;
+  onReport?: (commentId: string) => void;
 }
 
 export function CommentItem({
@@ -29,6 +30,7 @@ export function CommentItem({
   onAccept,
   onEdit,
   onDelete,
+  onReport,
 }: CommentItemProps) {
   const getInitials = (username: string) => {
     return username.slice(0, 2).toUpperCase();
@@ -135,6 +137,16 @@ export function CommentItem({
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </>
+              )}
+              {!isCommentAuthor && onReport && (
+                <Button
+                  variant="ghost"
+                  size="iconSm"
+                  onClick={() => onReport(comment.id)}
+                  title="Denunciar comentário"
+                >
+                  <Flag className="h-4 w-4" />
+                </Button>
               )}
             </div>
           </div>
