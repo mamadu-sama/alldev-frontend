@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Search, 
   Eye,
@@ -7,7 +7,9 @@ import {
   AlertTriangle,
   Filter,
   Clock,
-  ArrowUp
+  ArrowUp,
+  Loader2,
+  EyeOff
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,84 +35,8 @@ import {
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-
-interface QueueItem {
-  id: string;
-  type: 'post' | 'comment';
-  content: string;
-  title?: string;
-  author: {
-    username: string;
-    avatarUrl?: string;
-    reputation: number;
-  };
-  reports: number;
-  reason: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  createdAt: string;
-  reportedAt: string;
-}
-
-const mockQueue: QueueItem[] = [
-  {
-    id: '1',
-    type: 'post',
-    title: 'Confira minha nova ferramenta gratuita!!!',
-    content: 'Baixe agora em www.link-suspeito.com! É grátis e vai mudar sua vida...',
-    author: { username: 'spammer123', avatarUrl: 'https://i.pravatar.cc/150?u=spam', reputation: 5 },
-    reports: 8,
-    reason: 'Spam',
-    priority: 'urgent',
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    reportedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '2',
-    type: 'comment',
-    content: 'Você não sabe nada sobre programação, seu código é lixo e você deveria desistir.',
-    author: { username: 'toxic_user', avatarUrl: 'https://i.pravatar.cc/150?u=toxic', reputation: 120 },
-    reports: 5,
-    reason: 'Assédio',
-    priority: 'high',
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    reportedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '3',
-    type: 'post',
-    title: 'Como hackear contas do Instagram',
-    content: 'Neste tutorial vou ensinar como invadir contas de outras pessoas...',
-    author: { username: 'hacker_kid', avatarUrl: 'https://i.pravatar.cc/150?u=hack', reputation: 15 },
-    reports: 12,
-    reason: 'Conteúdo Inapropriado',
-    priority: 'urgent',
-    createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-    reportedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '4',
-    type: 'comment',
-    content: 'Acho que essa informação está incorreta. O método descrito pode causar vazamento de memória.',
-    author: { username: 'concerned_dev', avatarUrl: 'https://i.pravatar.cc/150?u=concern', reputation: 850 },
-    reports: 1,
-    reason: 'Desinformação',
-    priority: 'low',
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    reportedAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '5',
-    type: 'post',
-    title: 'Discussão sobre política de programação',
-    content: 'Tabs vs Spaces: qual é a escolha certa? (contém linguagem forte)',
-    author: { username: 'passionate_coder', avatarUrl: 'https://i.pravatar.cc/150?u=passion', reputation: 340 },
-    reports: 2,
-    reason: 'Linguagem Inapropriada',
-    priority: 'medium',
-    createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-    reportedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-  },
-];
+import { moderatorService, QueueItem, QueueStats } from '@/services/moderator.service';
+import { useNavigate } from 'react-router-dom';
 
 const priorityColors = {
   low: 'bg-slate-500/10 text-slate-500',
@@ -126,45 +52,109 @@ const priorityLabels = {
   urgent: 'Urgente',
 };
 
+type ActionType = 'approve' | 'hide' | 'delete' | 'escalate';
+
 export default function ModeratorQueue() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
-  const [actionType, setActionType] = useState<'approve' | 'reject' | 'warn' | 'escalate' | null>(null);
+  const [actionType, setActionType] = useState<ActionType | null>(null);
   const [moderationNote, setModerationNote] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [stats, setStats] = useState<QueueStats | null>(null);
 
-  const filteredQueue = mockQueue
-    .filter((item) => {
-      const matchesSearch = 
-        item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.author.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.title && item.title.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchesPriority = priorityFilter === 'all' || item.priority === priorityFilter;
-      const matchesType = typeFilter === 'all' || item.type === typeFilter;
-      return matchesSearch && matchesPriority && matchesType;
-    })
-    .sort((a, b) => {
-      const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
-      return priorityOrder[a.priority] - priorityOrder[b.priority];
-    });
+  useEffect(() => {
+    loadData();
+  }, [priorityFilter, typeFilter]);
 
-  const handleAction = () => {
-    const actionMessages = {
-      approve: 'Conteúdo aprovado',
-      reject: 'Conteúdo removido',
-      warn: 'Aviso enviado ao usuário',
-      escalate: 'Caso escalado para administradores',
-    };
-    toast.success(actionMessages[actionType!]);
-    setSelectedItem(null);
-    setActionType(null);
-    setModerationNote('');
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [queueData, statsData] = await Promise.all([
+        moderatorService.getQueue(1, 50, priorityFilter, typeFilter),
+        moderatorService.getQueueStats(),
+      ]);
+      setQueue(queueData.data);
+      setStats(statsData);
+    } catch (error: any) {
+      console.error('Error loading queue:', error);
+      toast.error(error.response?.data?.error?.message || 'Erro ao carregar fila');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const openActionDialog = (item: QueueItem, action: typeof actionType) => {
+  const filteredQueue = queue.filter((item) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      item.content.toLowerCase().includes(query) ||
+      item.author.username.toLowerCase().includes(query) ||
+      (item.title && item.title.toLowerCase().includes(query))
+    );
+  });
+
+  const handleAction = async () => {
+    if (!selectedItem || !actionType) return;
+
+    const actionTypeMap: Record<ActionType, string> = {
+      approve: 'APPROVE_CONTENT',
+      hide: 'HIDE_POST',
+      delete: selectedItem.type === 'POST' ? 'DELETE_POST' : 'DELETE_COMMENT',
+      escalate: 'ESCALATE',
+    };
+
+    try {
+      setSubmitting(true);
+      await moderatorService.takeAction({
+        targetId: selectedItem.id,
+        targetType: selectedItem.type,
+        actionType: actionTypeMap[actionType],
+        notes: moderationNote,
+      });
+
+      const actionMessages: Record<ActionType, string> = {
+        approve: 'Conteúdo aprovado',
+        hide: 'Conteúdo ocultado',
+        delete: 'Conteúdo removido',
+        escalate: 'Caso escalado para administradores',
+      };
+
+      toast.success(actionMessages[actionType]);
+      
+      // Remove item from queue
+      setQueue(queue.filter(item => item.id !== selectedItem.id));
+      
+      setSelectedItem(null);
+      setActionType(null);
+      setModerationNote('');
+      
+      // Reload stats
+      const statsData = await moderatorService.getQueueStats();
+      setStats(statsData);
+    } catch (error: any) {
+      console.error('Error taking action:', error);
+      toast.error(error.response?.data?.error?.message || 'Erro ao executar ação');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openActionDialog = (item: QueueItem, action: ActionType) => {
     setSelectedItem(item);
     setActionType(action);
+  };
+
+  const handleViewContent = (item: QueueItem) => {
+    if (item.type === 'POST' && item.slug) {
+      navigate(`/posts/${item.slug}`);
+    } else if (item.type === 'COMMENT' && item.slug) {
+      navigate(`/posts/${item.slug}`);
+    }
   };
 
   return (
@@ -207,8 +197,8 @@ export default function ModeratorQueue() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="post">Posts</SelectItem>
-                <SelectItem value="comment">Comentários</SelectItem>
+                <SelectItem value="POST">Posts</SelectItem>
+                <SelectItem value="COMMENT">Comentários</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -216,32 +206,26 @@ export default function ModeratorQueue() {
       </Card>
 
       {/* Queue Stats */}
-      <div className="grid gap-4 sm:grid-cols-4">
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-center">
-          <div className="text-2xl font-bold text-red-500">
-            {mockQueue.filter(i => i.priority === 'urgent').length}
+      {stats && (
+        <div className="grid gap-4 sm:grid-cols-4">
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-center">
+            <div className="text-2xl font-bold text-red-500">{stats.urgent}</div>
+            <div className="text-sm text-red-400">Urgentes</div>
           </div>
-          <div className="text-sm text-red-400">Urgentes</div>
-        </div>
-        <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-3 text-center">
-          <div className="text-2xl font-bold text-orange-500">
-            {mockQueue.filter(i => i.priority === 'high').length}
+          <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 p-3 text-center">
+            <div className="text-2xl font-bold text-orange-500">{stats.high}</div>
+            <div className="text-sm text-orange-400">Alta Prioridade</div>
           </div>
-          <div className="text-sm text-orange-400">Alta Prioridade</div>
-        </div>
-        <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-center">
-          <div className="text-2xl font-bold text-blue-500">
-            {mockQueue.filter(i => i.priority === 'medium').length}
+          <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-center">
+            <div className="text-2xl font-bold text-blue-500">{stats.medium}</div>
+            <div className="text-sm text-blue-400">Média</div>
           </div>
-          <div className="text-sm text-blue-400">Média</div>
-        </div>
-        <div className="rounded-lg border border-slate-500/30 bg-slate-500/10 p-3 text-center">
-          <div className="text-2xl font-bold text-slate-400">
-            {mockQueue.filter(i => i.priority === 'low').length}
+          <div className="rounded-lg border border-slate-500/30 bg-slate-500/10 p-3 text-center">
+            <div className="text-2xl font-bold text-slate-400">{stats.low}</div>
+            <div className="text-sm text-slate-400">Baixa</div>
           </div>
-          <div className="text-sm text-slate-400">Baixa</div>
         </div>
-      </div>
+      )}
 
       {/* Queue List */}
       <Card>
@@ -252,73 +236,93 @@ export default function ModeratorQueue() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredQueue.map((item) => (
-              <div 
-                key={item.id} 
-                className="rounded-lg border border-border p-4 transition-colors hover:bg-accent/30"
-              >
-                <div className="flex items-start gap-4">
-                  <Avatar>
-                    <AvatarImage src={item.author.avatarUrl} />
-                    <AvatarFallback>{item.author.username.slice(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant={item.type === 'post' ? 'default' : 'secondary'} size="sm">
-                        {item.type === 'post' ? 'Post' : 'Comentário'}
-                      </Badge>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${priorityColors[item.priority]}`}>
-                        {priorityLabels[item.priority]}
-                      </span>
-                      <Badge variant="destructive" size="sm">
-                        {item.reports} denúncias
-                      </Badge>
-                      <Badge variant="outline" size="sm">
-                        {item.reason}
-                      </Badge>
-                    </div>
-                    
-                    {item.title && (
-                      <h4 className="mt-2 font-medium text-foreground">{item.title}</h4>
-                    )}
-                    
-                    <p className="mt-1 text-muted-foreground line-clamp-2">{item.content}</p>
-                    
-                    <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>@{item.author.username}</span>
-                      <span>Rep: {item.author.reputation}</span>
-                      <span>
-                        Reportado {formatDistanceToNow(new Date(item.reportedAt), { addSuffix: true, locale: ptBR })}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col gap-2">
-                    <Button size="sm" variant="outline" onClick={() => openActionDialog(item, 'approve')}>
-                      <CheckCircle className="mr-1 h-4 w-4 text-success" />
-                      Aprovar
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => openActionDialog(item, 'reject')}>
-                      <XCircle className="mr-1 h-4 w-4 text-destructive" />
-                      Remover
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => openActionDialog(item, 'warn')}>
-                      <AlertTriangle className="mr-1 h-4 w-4 text-warning" />
-                      Avisar
-                    </Button>
-                    {item.priority === 'urgent' && (
-                      <Button size="sm" variant="destructive" onClick={() => openActionDialog(item, 'escalate')}>
-                        <ArrowUp className="mr-1 h-4 w-4" />
-                        Escalar
-                      </Button>
-                    )}
-                  </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredQueue.length === 0 ? (
+                <div className="text-center py-12">
+                  <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">Nenhum item na fila! Bom trabalho.</p>
                 </div>
-              </div>
-            ))}
-          </div>
+              ) : (
+                filteredQueue.map((item) => (
+                  <div 
+                    key={item.id} 
+                    className="rounded-lg border border-border p-4 transition-colors hover:bg-accent/30"
+                  >
+                    <div className="flex items-start gap-4">
+                      <Avatar>
+                        <AvatarImage src={item.author.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.author.username}`} />
+                        <AvatarFallback>{item.author.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant={item.type === 'POST' ? 'default' : 'secondary'} size="sm">
+                            {item.type === 'POST' ? 'Post' : 'Comentário'}
+                          </Badge>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${priorityColors[item.priority]}`}>
+                            {priorityLabels[item.priority]}
+                          </span>
+                          <Badge variant="destructive" size="sm">
+                            {item.reports} denúncias
+                          </Badge>
+                          <Badge variant="outline" size="sm">
+                            {item.reason}
+                          </Badge>
+                        </div>
+                        
+                        {item.title && (
+                          <h4 className="mt-2 font-medium text-foreground">{item.title}</h4>
+                        )}
+                        
+                        <p className="mt-1 text-muted-foreground line-clamp-2">{item.content}</p>
+                        
+                        <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>@{item.author.username}</span>
+                          <span>Rep: {item.author.reputation}</span>
+                          <span>
+                            Reportado {formatDistanceToNow(new Date(item.reportedAt), { addSuffix: true, locale: ptBR })}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-col gap-2">
+                        <Button size="sm" variant="outline" onClick={() => handleViewContent(item)}>
+                          <Eye className="mr-1 h-4 w-4" />
+                          Ver
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => openActionDialog(item, 'approve')}>
+                          <CheckCircle className="mr-1 h-4 w-4 text-success" />
+                          Aprovar
+                        </Button>
+                        {item.type === 'POST' ? (
+                          <Button size="sm" variant="outline" onClick={() => openActionDialog(item, 'hide')}>
+                            <EyeOff className="mr-1 h-4 w-4 text-warning" />
+                            Ocultar
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => openActionDialog(item, 'delete')}>
+                            <XCircle className="mr-1 h-4 w-4 text-destructive" />
+                            Remover
+                          </Button>
+                        )}
+                        {item.priority === 'urgent' && (
+                          <Button size="sm" variant="destructive" onClick={() => openActionDialog(item, 'escalate')}>
+                            <ArrowUp className="mr-1 h-4 w-4" />
+                            Escalar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -328,14 +332,14 @@ export default function ModeratorQueue() {
           <DialogHeader>
             <DialogTitle>
               {actionType === 'approve' && 'Aprovar Conteúdo'}
-              {actionType === 'reject' && 'Remover Conteúdo'}
-              {actionType === 'warn' && 'Enviar Aviso ao Usuário'}
+              {actionType === 'hide' && 'Ocultar Post'}
+              {actionType === 'delete' && 'Remover Conteúdo'}
               {actionType === 'escalate' && 'Escalar para Admin'}
             </DialogTitle>
             <DialogDescription>
               {actionType === 'approve' && 'O conteúdo será marcado como revisado e permanecerá visível.'}
-              {actionType === 'reject' && 'O conteúdo será removido e o autor será notificado.'}
-              {actionType === 'warn' && 'Um aviso será enviado ao autor sobre as regras da comunidade.'}
+              {actionType === 'hide' && 'O post será ocultado mas não deletado. Pode ser restaurado por admins.'}
+              {actionType === 'delete' && 'O conteúdo será removido permanentemente.'}
               {actionType === 'escalate' && 'O caso será enviado para administradores tomarem ação mais severa.'}
             </DialogDescription>
           </DialogHeader>
@@ -343,11 +347,11 @@ export default function ModeratorQueue() {
           <div className="space-y-4 py-4">
             {selectedItem && (
               <div className="rounded-lg bg-muted p-3">
+                <p className="text-sm font-medium mb-1">
+                  {selectedItem.type === 'POST' ? 'Post' : 'Comentário'} de @{selectedItem.author.username}
+                </p>
                 <p className="text-sm text-muted-foreground line-clamp-2">
                   {selectedItem.content}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  por @{selectedItem.author.username}
                 </p>
               </div>
             )}
@@ -364,12 +368,22 @@ export default function ModeratorQueue() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setActionType(null)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setActionType(null)} disabled={submitting}>
+              Cancelar
+            </Button>
             <Button 
-              variant={actionType === 'reject' || actionType === 'escalate' ? 'destructive' : 'default'}
+              variant={actionType === 'delete' || actionType === 'escalate' ? 'destructive' : 'default'}
               onClick={handleAction}
+              disabled={submitting}
             >
-              Confirmar
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                'Confirmar'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

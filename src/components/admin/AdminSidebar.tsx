@@ -10,7 +10,8 @@ import {
   ChevronLeft,
   Shield,
   Bell,
-  Lightbulb
+  Lightbulb,
+  Mail
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +24,7 @@ const adminNavItems = [
   { icon: Flag, label: 'Denúncias', href: '/admin/reports' },
   { icon: Bell, label: 'Notificações', href: '/admin/notifications' },
   { icon: Lightbulb, label: 'Sugestões', href: '/admin/features' },
+  { icon: Mail, label: 'Mensagens', href: '/admin/messages' },
   { icon: Settings, label: 'Configurações', href: '/admin/settings' },
 ];
 

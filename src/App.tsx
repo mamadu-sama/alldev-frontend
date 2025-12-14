@@ -40,6 +40,7 @@ import AdminReports from "@/pages/admin/AdminReports";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminNotifications from "@/pages/admin/AdminNotifications";
 import AdminFeatures from "@/pages/admin/AdminFeatures";
+import AdminMessages from "@/pages/admin/AdminMessages";
 import ModeratorDashboard from "@/pages/moderator/ModeratorDashboard";
 import ModeratorQueue from "@/pages/moderator/ModeratorQueue";
 import ModeratorPosts from "@/pages/moderator/ModeratorPosts";
@@ -101,6 +102,7 @@ function AppRoutes() {
           <Route path="/admin/reports" element={<AdminReports />} />
           <Route path="/admin/notifications" element={<AdminNotifications />} />
           <Route path="/admin/features" element={<AdminFeatures />} />
+          <Route path="/admin/messages" element={<AdminMessages />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
         </Route>
 
