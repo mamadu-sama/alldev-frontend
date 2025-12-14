@@ -150,4 +150,41 @@ export const adminService = {
   async deleteComment(commentId: string): Promise<void> {
     await api.delete(`/admin/comments/${commentId}`);
   },
+
+  // Tags Management
+  async getAllTags(): Promise<any> {
+    const response = await api.get('/tags');
+    return response.data.data;
+  },
+
+  async createTag(data: { name: string; description: string }): Promise<any> {
+    const response = await api.post('/tags', data);
+    return response.data.data;
+  },
+
+  async updateTag(tagId: string, data: { name: string; description: string }): Promise<any> {
+    const response = await api.patch(`/tags/${tagId}`, data);
+    return response.data.data;
+  },
+
+  async deleteTag(tagId: string): Promise<void> {
+    await api.delete(`/tags/${tagId}`);
+  },
+
+  // Reports Management
+  async getAllReports(page: number = 1, limit: number = 50, status?: string): Promise<any> {
+    let url = `/reports?page=${page}&limit=${limit}`;
+    if (status && status !== 'all') {
+      url += `&status=${status}`;
+    }
+    const response = await api.get(url);
+    return {
+      data: response.data.data,
+      meta: response.data.meta,
+    };
+  },
+
+  async updateReportStatus(reportId: string, status: string, resolution?: string): Promise<void> {
+    await api.patch(`/reports/${reportId}`, { status, resolution });
+  },
 };

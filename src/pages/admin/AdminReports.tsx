@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Search, 
   MoreHorizontal, 
@@ -9,13 +9,15 @@ import {
   AlertTriangle,
   MessageSquare,
   FileText,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,88 +39,43 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { toast } from 'sonner';
+import { adminService } from '@/services/admin.service';
+import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Link } from 'react-router-dom';
 
 interface Report {
   id: string;
-  type: 'post' | 'comment' | 'user';
-  reason: 'spam' | 'harassment' | 'inappropriate' | 'misinformation' | 'other';
+  reason: string;
   description: string;
-  reportedBy: {
-    username: string;
-    avatarUrl?: string;
-  };
-  reportedItem: {
-    id: string;
-    title?: string;
-    content?: string;
-    username?: string;
-  };
-  status: 'pending' | 'resolved' | 'dismissed';
+  status: string;
   createdAt: string;
+  reporter: {
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+  };
+  post?: {
+    id: string;
+    title: string;
+    slug: string;
+  };
+  comment?: {
+    id: string;
+    content: string;
+    post: {
+      slug: string;
+    };
+  };
 }
 
-const mockReports: Report[] = [
-  {
-    id: '1',
-    type: 'post',
-    reason: 'spam',
-    description: 'Este post está promovendo um serviço externo de forma abusiva.',
-    reportedBy: { username: 'maria_dev', avatarUrl: 'https://i.pravatar.cc/150?u=maria' },
-    reportedItem: { id: 'p1', title: 'Confira esta incrível ferramenta!' },
-    status: 'pending',
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '2',
-    type: 'comment',
-    reason: 'harassment',
-    description: 'Comentário ofensivo e desrespeitoso.',
-    reportedBy: { username: 'joao_code', avatarUrl: 'https://i.pravatar.cc/150?u=joao' },
-    reportedItem: { id: 'c1', content: 'Você não sabe nada sobre programação...' },
-    status: 'pending',
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '3',
-    type: 'user',
-    reason: 'spam',
-    description: 'Usuário criando múltiplos posts spam.',
-    reportedBy: { username: 'ana_tech', avatarUrl: 'https://i.pravatar.cc/150?u=ana' },
-    reportedItem: { id: 'u1', username: 'spammer123' },
-    status: 'resolved',
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '4',
-    type: 'post',
-    reason: 'misinformation',
-    description: 'Informação técnica incorreta que pode prejudicar outros devs.',
-    reportedBy: { username: 'pedro_js', avatarUrl: 'https://i.pravatar.cc/150?u=pedro' },
-    reportedItem: { id: 'p2', title: 'Como usar eval() de forma segura' },
-    status: 'pending',
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '5',
-    type: 'comment',
-    reason: 'inappropriate',
-    description: 'Linguagem inapropriada.',
-    reportedBy: { username: 'lucas_dev', avatarUrl: 'https://i.pravatar.cc/150?u=lucas' },
-    reportedItem: { id: 'c2', content: 'Conteúdo removido...' },
-    status: 'dismissed',
-    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-  },
-];
-
 const reasonLabels: Record<string, string> = {
-  spam: 'Spam',
-  harassment: 'Assédio',
-  inappropriate: 'Conteúdo Inapropriado',
-  misinformation: 'Desinformação',
-  other: 'Outro',
+  SPAM: 'Spam',
+  INAPPROPRIATE: 'Conteúdo Inapropriado',
+  OFFENSIVE: 'Ofensivo',
+  MISINFORMATION: 'Desinformação',
+  OTHER: 'Outro',
 };
 
 const typeIcons = {
@@ -128,32 +85,103 @@ const typeIcons = {
 };
 
 export default function AdminReports() {
+  const { toast } = useToast();
+  const [reports, setReports] = useState<Report[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [dialogType, setDialogType] = useState<'view' | 'resolve' | 'dismiss' | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredReports = mockReports.filter((report) => {
-    const matchesSearch = report.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.reportedBy.username.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || report.status === statusFilter;
-    const matchesType = typeFilter === 'all' || report.type === typeFilter;
-    return matchesSearch && matchesStatus && matchesType;
-  });
+  useEffect(() => {
+    loadReports();
+  }, [statusFilter]);
 
-  const pendingCount = mockReports.filter(r => r.status === 'pending').length;
-
-  const handleResolveReport = () => {
-    toast.success('Denúncia resolvida e ação tomada');
-    setDialogType(null);
-    setSelectedReport(null);
+  const loadReports = async () => {
+    try {
+      setIsLoading(true);
+      const response = await adminService.getAllReports(1, 100, statusFilter);
+      setReports(response.data);
+    } catch (error) {
+      toast({
+        title: 'Erro ao carregar denúncias',
+        description: 'Não foi possível carregar a lista de denúncias.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDismissReport = () => {
-    toast.success('Denúncia descartada');
-    setDialogType(null);
-    setSelectedReport(null);
+  const filteredReports = reports.filter((report) => {
+    const matchesSearch = report.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      report.reporter.username.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
+
+  const pendingCount = reports.filter(r => r.status === 'PENDING').length;
+
+  const handleResolveReport = async () => {
+    if (!selectedReport) return;
+
+    setIsSubmitting(true);
+    try {
+      await adminService.updateReportStatus(selectedReport.id, 'RESOLVED', 'Ação tomada pelo administrador');
+      toast({
+        title: 'Denúncia resolvida!',
+        description: 'A denúncia foi marcada como resolvida.',
+      });
+      await loadReports();
+      setDialogType(null);
+      setSelectedReport(null);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível resolver a denúncia.';
+      toast({
+        title: 'Erro ao resolver denúncia',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDismissReport = async () => {
+    if (!selectedReport) return;
+
+    setIsSubmitting(true);
+    try {
+      await adminService.updateReportStatus(selectedReport.id, 'DISMISSED', 'Denúncia não válida');
+      toast({
+        title: 'Denúncia descartada!',
+        description: 'A denúncia foi descartada.',
+      });
+      await loadReports();
+      setDialogType(null);
+      setSelectedReport(null);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível descartar a denúncia.';
+      toast({
+        title: 'Erro ao descartar denúncia',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getReportType = (report: Report): 'post' | 'comment' | 'user' => {
+    if (report.post) return 'post';
+    if (report.comment) return 'comment';
+    return 'user';
   };
 
   return (
@@ -191,21 +219,9 @@ export default function AdminReports() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="pending">Pendentes</SelectItem>
-                <SelectItem value="resolved">Resolvidos</SelectItem>
-                <SelectItem value="dismissed">Descartados</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full sm:w-[150px]">
-                <AlertTriangle className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="post">Posts</SelectItem>
-                <SelectItem value="comment">Comentários</SelectItem>
-                <SelectItem value="user">Usuários</SelectItem>
+                <SelectItem value="PENDING">Pendentes</SelectItem>
+                <SelectItem value="RESOLVED">Resolvidos</SelectItem>
+                <SelectItem value="DISMISSED">Descartados</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -218,111 +234,126 @@ export default function AdminReports() {
           <CardTitle>Lista de Denúncias ({filteredReports.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredReports.map((report) => {
-              const TypeIcon = typeIcons[report.type];
-              return (
-                <div 
-                  key={report.id} 
-                  className="rounded-lg border border-border p-4 transition-colors hover:bg-accent/50"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1">
-                      <div className={`rounded-lg p-2 ${
-                        report.type === 'post' ? 'bg-blue-500/10 text-blue-500' :
-                        report.type === 'comment' ? 'bg-purple-500/10 text-purple-500' :
-                        'bg-amber-500/10 text-amber-500'
-                      }`}>
-                        <TypeIcon className="h-5 w-5" />
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredReports.length > 0 ? (
+            <div className="space-y-4">
+              {filteredReports.map((report) => {
+                const reportType = getReportType(report);
+                const TypeIcon = typeIcons[reportType];
+                return (
+                  <div 
+                    key={report.id} 
+                    className="rounded-lg border border-border p-4 transition-colors hover:bg-accent/50"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className={`rounded-lg p-2 ${
+                          reportType === 'post' ? 'bg-blue-500/10 text-blue-500' :
+                          reportType === 'comment' ? 'bg-purple-500/10 text-purple-500' :
+                          'bg-amber-500/10 text-amber-500'
+                        }`}>
+                          <TypeIcon className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant={
+                              report.reason === 'SPAM' ? 'warning' :
+                              report.reason === 'OFFENSIVE' || report.reason === 'INAPPROPRIATE' ? 'destructive' :
+                              'secondary'
+                            } size="sm">
+                              {reasonLabels[report.reason] || report.reason}
+                            </Badge>
+                            <Badge variant={
+                              report.status === 'PENDING' ? 'warning' :
+                              report.status === 'RESOLVED' ? 'success' : 'secondary'
+                            } size="sm">
+                              {report.status === 'PENDING' ? 'Pendente' :
+                               report.status === 'RESOLVED' ? 'Resolvido' : 'Descartado'}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {formatDistanceToNow(new Date(report.createdAt), { 
+                                addSuffix: true,
+                                locale: ptBR 
+                              })}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-foreground">{report.description}</p>
+                          <div className="mt-2 rounded bg-muted/50 p-2">
+                            <p className="text-sm text-muted-foreground">
+                              {report.post && (
+                                <Link to={`/posts/${report.post.slug}`} className="hover:underline">
+                                  Post: "{report.post.title}"
+                                </Link>
+                              )}
+                              {report.comment && (
+                                <Link to={`/posts/${report.comment.post.slug}`} className="hover:underline">
+                                  Comentário: "{report.comment.content.slice(0, 50)}..."
+                                </Link>
+                              )}
+                            </p>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2">
+                            <Avatar size="xs">
+                              <AvatarImage src={report.reporter.avatarUrl || undefined} />
+                              <AvatarFallback>{report.reporter.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm text-muted-foreground">
+                              Denunciado por {report.reporter.username}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant={
-                            report.reason === 'spam' ? 'warning' :
-                            report.reason === 'harassment' ? 'destructive' :
-                            report.reason === 'inappropriate' ? 'destructive' :
-                            'secondary'
-                          } size="sm">
-                            {reasonLabels[report.reason]}
-                          </Badge>
-                          <Badge variant={
-                            report.status === 'pending' ? 'warning' :
-                            report.status === 'resolved' ? 'success' : 'secondary'
-                          } size="sm">
-                            {report.status === 'pending' ? 'Pendente' :
-                             report.status === 'resolved' ? 'Resolvido' : 'Descartado'}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {formatDistanceToNow(new Date(report.createdAt), { 
-                              addSuffix: true,
-                              locale: ptBR 
-                            })}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-foreground">{report.description}</p>
-                        <div className="mt-2 rounded bg-muted/50 p-2">
-                          <p className="text-sm text-muted-foreground">
-                            {report.type === 'post' && `Post: "${report.reportedItem.title}"`}
-                            {report.type === 'comment' && `Comentário: "${report.reportedItem.content?.slice(0, 50)}..."`}
-                            {report.type === 'user' && `Usuário: @${report.reportedItem.username}`}
-                          </p>
-                        </div>
-                        <div className="mt-2 flex items-center gap-2">
-                          <Avatar size="xs">
-                            <AvatarImage src={report.reportedBy.avatarUrl} />
-                            <AvatarFallback>{report.reportedBy.username.slice(0, 2).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm text-muted-foreground">
-                            Denunciado por {report.reportedBy.username}
-                          </span>
-                        </div>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedReport(report);
+                            setDialogType('view');
+                          }}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Ver Detalhes
+                          </DropdownMenuItem>
+                          {report.status === 'PENDING' && (
+                            <>
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setSelectedReport(report);
+                                  setDialogType('resolve');
+                                }}
+                                className="text-success"
+                              >
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Resolver
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setSelectedReport(report);
+                                  setDialogType('dismiss');
+                                }}
+                                className="text-muted-foreground"
+                              >
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Descartar
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => {
-                          setSelectedReport(report);
-                          setDialogType('view');
-                        }}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Ver Detalhes
-                        </DropdownMenuItem>
-                        {report.status === 'pending' && (
-                          <>
-                            <DropdownMenuItem 
-                              onClick={() => {
-                                setSelectedReport(report);
-                                setDialogType('resolve');
-                              }}
-                              className="text-success"
-                            >
-                              <CheckCircle className="mr-2 h-4 w-4" />
-                              Resolver
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => {
-                                setSelectedReport(report);
-                                setDialogType('dismiss');
-                              }}
-                              className="text-muted-foreground"
-                            >
-                              <XCircle className="mr-2 h-4 w-4" />
-                              Descartar
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">Nenhuma denúncia encontrada</p>
+          )}
         </CardContent>
       </Card>
 
@@ -336,11 +367,11 @@ export default function AdminReports() {
             <div className="space-y-4">
               <div>
                 <Label className="text-muted-foreground">Tipo</Label>
-                <p className="font-medium capitalize">{selectedReport.type}</p>
+                <p className="font-medium capitalize">{getReportType(selectedReport)}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Motivo</Label>
-                <p className="font-medium">{reasonLabels[selectedReport.reason]}</p>
+                <p className="font-medium">{reasonLabels[selectedReport.reason] || selectedReport.reason}</p>
               </div>
               <div>
                 <Label className="text-muted-foreground">Descrição</Label>
@@ -349,19 +380,18 @@ export default function AdminReports() {
               <div>
                 <Label className="text-muted-foreground">Item Denunciado</Label>
                 <div className="mt-1 rounded bg-muted p-3">
-                  {selectedReport.type === 'post' && selectedReport.reportedItem.title}
-                  {selectedReport.type === 'comment' && selectedReport.reportedItem.content}
-                  {selectedReport.type === 'user' && `@${selectedReport.reportedItem.username}`}
+                  {selectedReport.post && selectedReport.post.title}
+                  {selectedReport.comment && selectedReport.comment.content}
                 </div>
               </div>
               <div>
                 <Label className="text-muted-foreground">Denunciado por</Label>
                 <div className="flex items-center gap-2 mt-1">
                   <Avatar size="sm">
-                    <AvatarImage src={selectedReport.reportedBy.avatarUrl} />
-                    <AvatarFallback>{selectedReport.reportedBy.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarImage src={selectedReport.reporter.avatarUrl || undefined} />
+                    <AvatarFallback>{selectedReport.reporter.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
-                  <span>{selectedReport.reportedBy.username}</span>
+                  <span>{selectedReport.reporter.username}</span>
                 </div>
               </div>
             </div>
@@ -378,12 +408,17 @@ export default function AdminReports() {
           <DialogHeader>
             <DialogTitle>Resolver Denúncia</DialogTitle>
             <DialogDescription>
-              Ao resolver, você confirma que uma ação foi tomada contra o conteúdo/usuário denunciado.
+              Ao resolver, você confirma que uma ação foi tomada contra o conteúdo denunciado.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogType(null)}>Cancelar</Button>
-            <Button onClick={handleResolveReport}>Resolver</Button>
+            <Button variant="outline" onClick={() => setDialogType(null)} disabled={isSubmitting}>
+              Cancelar
+            </Button>
+            <Button onClick={handleResolveReport} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Resolver
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -398,19 +433,16 @@ export default function AdminReports() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogType(null)}>Cancelar</Button>
-            <Button variant="secondary" onClick={handleDismissReport}>Descartar</Button>
+            <Button variant="outline" onClick={() => setDialogType(null)} disabled={isSubmitting}>
+              Cancelar
+            </Button>
+            <Button variant="secondary" onClick={handleDismissReport} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Descartar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function Label({ className, children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
-  return (
-    <label className={`text-sm font-medium ${className}`} {...props}>
-      {children}
-    </label>
   );
 }
