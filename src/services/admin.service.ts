@@ -1,42 +1,21 @@
 import api from "./api";
 
-export interface AdminStatistics {
-  users: {
-    total: number;
-    active: number;
-    recentWeek: number;
-  };
-  posts: {
-    total: number;
-    recentWeek: number;
-  };
-  comments: {
-    total: number;
-  };
-  tags: {
-    total: number;
-  };
-  reports: {
-    pending: number;
-  };
-  views: {
-    total: number;
-  };
+export interface AdminStats {
+  totalUsers: number;
+  totalPosts: number;
+  totalComments: number;
+  totalReports: number;
 }
 
 export interface RecentPost {
   id: string;
   title: string;
-  slug: string;
-  createdAt: string;
   author: {
-    id: string;
     username: string;
-    avatarUrl: string | null;
   };
-  _count: {
-    comments: number;
-  };
+  createdAt: string;
+  voteCount: number;
+  commentCount: number;
 }
 
 export interface RecentUser {
@@ -44,8 +23,8 @@ export interface RecentUser {
   username: string;
   email: string;
   avatarUrl: string | null;
-  level: string;
   createdAt: string;
+  reputation: number;
 }
 
 export interface AdminUser {
@@ -53,47 +32,81 @@ export interface AdminUser {
   username: string;
   email: string;
   avatarUrl: string | null;
-  bio: string | null;
   reputation: number;
   level: string;
-  roles: Array<{ role: string }>;
   isActive: boolean;
-  isVerified: boolean;
+  roles: string[];
   createdAt: string;
-  _count: {
-    posts: number;
-    comments: number;
-  };
 }
 
-export interface PaginatedUsers {
-  data: AdminUser[];
-  meta: {
-    page: number;
-    limit: number;
-    total: number;
-    hasMore: boolean;
+export interface AdminPost {
+  id: string;
+  title: string;
+  slug: string;
+  isHidden: boolean;
+  author: {
+    username: string;
+  };
+  voteCount: number;
+  commentCount: number;
+  createdAt: string;
+}
+
+export interface AdminComment {
+  id: string;
+  content: string;
+  author: {
+    username: string;
+  };
+  post: {
+    title: string;
+    slug: string;
+  };
+  voteCount: number;
+  createdAt: string;
+}
+
+export interface AdminNotificationPayload {
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'error';
+  targetAudience: 'all' | 'admins' | 'moderators' | 'users';
+}
+
+export interface AdminNotificationHistory {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  sender: {
+    username: string;
+  };
+  createdAt: string;
+  stats: {
+    totalSent: number;
+    totalRead: number;
   };
 }
 
 export const adminService = {
-  async getStatistics(): Promise<AdminStatistics> {
-    const response = await api.get("/admin/statistics");
+  // Statistics
+  async getStatistics(): Promise<AdminStats> {
+    const response = await api.get('/admin/statistics');
     return response.data.data;
   },
 
-  async getRecentPosts(limit: number = 10): Promise<RecentPost[]> {
-    const response = await api.get(`/admin/recent-posts?limit=${limit}`);
+  async getRecentPosts(): Promise<RecentPost[]> {
+    const response = await api.get('/admin/recent-posts');
     return response.data.data;
   },
 
-  async getRecentUsers(limit: number = 10): Promise<RecentUser[]> {
-    const response = await api.get(`/admin/recent-users?limit=${limit}`);
+  async getRecentUsers(): Promise<RecentUser[]> {
+    const response = await api.get('/admin/recent-users');
     return response.data.data;
   },
 
   // User Management
-  async getAllUsers(page: number = 1, limit: number = 50): Promise<PaginatedUsers> {
+  async getAllUsers(page: number = 1, limit: number = 50): Promise<any> {
     const response = await api.get(`/admin/users?page=${page}&limit=${limit}`);
     return {
       data: response.data.data,
@@ -205,8 +218,26 @@ export const adminService = {
     return response.data.data;
   },
 
-  async updateMaintenanceMode(data: { isEnabled: boolean; message?: string; endTime?: string }): Promise<any> {
+  async updateMaintenanceMode(data: {
+    isEnabled: boolean;
+    message?: string;
+    endTime?: string | null;
+  }): Promise<any> {
     const response = await api.post('/admin/maintenance', data);
     return response.data.data;
+  },
+
+  // Notifications
+  async sendBroadcastNotification(data: AdminNotificationPayload): Promise<{ sent: number }> {
+    const response = await api.post('/admin/notifications/broadcast', data);
+    return response.data.data;
+  },
+
+  async getNotificationHistory(page: number = 1, limit: number = 50): Promise<any> {
+    const response = await api.get(`/admin/notifications/history?page=${page}&limit=${limit}`);
+    return {
+      data: response.data.data,
+      meta: response.data.meta,
+    };
   },
 };

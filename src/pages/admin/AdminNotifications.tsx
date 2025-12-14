@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Send,
   Users,
@@ -8,7 +8,8 @@ import {
   Info,
   XCircle,
   Search,
-  Clock
+  Clock,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,11 +25,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAdminNotificationStore } from '@/stores/adminNotificationStore';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuthStore } from '@/stores/authStore';
+import { adminService } from '@/services/admin.service';
 
 const notificationTypes = [
   { value: 'info', label: 'Informação', icon: Info, color: 'text-blue-500' },
@@ -46,8 +47,12 @@ const audienceOptions = [
 
 export default function AdminNotifications() {
   const { user } = useAuthStore();
-  const { sentNotifications, addSentNotification, addUserNotification } = useAdminNotificationStore();
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [stats, setStats] = useState({ estimated: 0 });
+  
   const [formData, setFormData] = useState({
     title: '',
     message: '',
@@ -55,41 +60,64 @@ export default function AdminNotifications() {
     targetAudience: 'all' as 'all' | 'admins' | 'moderators' | 'users',
   });
 
-  const handleSendNotification = () => {
+  // Load notification history
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  const loadHistory = async () => {
+    try {
+      setLoading(true);
+      const result = await adminService.getNotificationHistory(1, 100);
+      setHistory(result.data);
+    } catch (error: any) {
+      console.error('Error loading notification history:', error);
+      toast.error(error.response?.data?.error?.message || 'Erro ao carregar histórico');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendNotification = async () => {
     if (!formData.title.trim() || !formData.message.trim()) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
 
-    // Add to sent notifications history
-    addSentNotification({
-      title: formData.title,
-      message: formData.message,
-      type: formData.type,
-      targetAudience: formData.targetAudience,
-      sentBy: user?.username || 'Admin',
-    });
+    try {
+      setSending(true);
+      
+      const result = await adminService.sendBroadcastNotification({
+        title: formData.title,
+        message: formData.message,
+        type: formData.type,
+        targetAudience: formData.targetAudience,
+      });
 
-    // Add to user notifications (simulating broadcast)
-    addUserNotification({
-      type: 'mention',
-      message: `${formData.title}: ${formData.message}`,
-      read: false,
-    });
+      toast.success(`Notificação enviada para ${result.sent} usuário(s)!`);
+      
+      // Reset form
+      setFormData({
+        title: '',
+        message: '',
+        type: 'info',
+        targetAudience: 'all',
+      });
 
-    toast.success('Notificação enviada com sucesso!');
-    setFormData({
-      title: '',
-      message: '',
-      type: 'info',
-      targetAudience: 'all',
-    });
+      // Reload history
+      loadHistory();
+    } catch (error: any) {
+      console.error('Error sending notification:', error);
+      toast.error(error.response?.data?.error?.message || 'Erro ao enviar notificação');
+    } finally {
+      setSending(false);
+    }
   };
 
-  const filteredNotifications = sentNotifications.filter(
+  const filteredNotifications = history.filter(
     (n) =>
-      n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      n.message.toLowerCase().includes(searchQuery.toLowerCase())
+      n.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      n.message?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const getTypeIcon = (type: string) => {
@@ -198,9 +226,22 @@ export default function AdminNotifications() {
                   </div>
                 </div>
 
-                <Button onClick={handleSendNotification} className="w-full">
-                  <Send className="mr-2 h-4 w-4" />
-                  Enviar Notificação
+                <Button 
+                  onClick={handleSendNotification} 
+                  className="w-full"
+                  disabled={sending}
+                >
+                  {sending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Enviar Notificação
+                    </>
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -238,11 +279,9 @@ export default function AdminNotifications() {
                   <h5 className="font-medium text-sm mb-2">Estatísticas estimadas</h5>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-muted-foreground">Destinatários:</span>
+                      <span className="text-muted-foreground">Público:</span>
                       <span className="ml-2 font-medium">
-                        {formData.targetAudience === 'all' ? '~1,842' : 
-                         formData.targetAudience === 'admins' ? '~5' :
-                         formData.targetAudience === 'moderators' ? '~12' : '~1,825'}
+                        {audienceOptions.find((o) => o.value === formData.targetAudience)?.label}
                       </span>
                     </div>
                     <div>
@@ -279,7 +318,11 @@ export default function AdminNotifications() {
               </div>
             </CardHeader>
             <CardContent>
-              {filteredNotifications.length === 0 ? (
+              {loading ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                </div>
+              ) : filteredNotifications.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>Nenhuma notificação enviada ainda</p>
@@ -297,20 +340,28 @@ export default function AdminNotifications() {
                           <div className="flex items-start justify-between">
                             <h4 className="font-medium text-foreground">{notification.title}</h4>
                             <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(notification.sentAt), {
+                              {formatDistanceToNow(new Date(notification.createdAt), {
                                 addSuffix: true,
                                 locale: ptBR,
                               })}
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="secondary" size="sm">
-                              {audienceOptions.find((o) => o.value === notification.targetAudience)?.label}
-                            </Badge>
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
                             <span className="text-xs text-muted-foreground">
-                              Enviado por {notification.sentBy}
+                              Enviado por <span className="font-medium">{notification.sender?.username || 'Admin'}</span>
                             </span>
+                            {notification.stats && (
+                              <>
+                                <span className="text-xs text-muted-foreground">•</span>
+                                <Badge variant="secondary" size="sm">
+                                  {notification.stats.totalSent} enviadas
+                                </Badge>
+                                <Badge variant="outline" size="sm">
+                                  {notification.stats.totalRead} lidas
+                                </Badge>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
