@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Search, 
   Eye,
@@ -34,7 +35,7 @@ import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
-import { mockPosts } from '@/lib/mockData';
+import { moderatorService } from '@/services/moderator.service';
 
 interface ModeratedPost {
   id: string;
@@ -49,42 +50,55 @@ interface ModeratedPost {
   createdAt: string;
 }
 
-const moderatedPosts: ModeratedPost[] = mockPosts.slice(0, 5).map((post, index) => ({
-  id: post.id,
-  title: post.title,
-  content: post.content.slice(0, 200),
-  author: post.author,
-  reports: [3, 1, 5, 0, 2][index],
-  status: index === 2 ? 'hidden' : index === 4 ? 'locked' : 'visible',
-  createdAt: post.createdAt,
-}));
-
 export default function ModeratorPosts() {
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedPost, setSelectedPost] = useState<ModeratedPost | null>(null);
+  const [selectedPost, setSelectedPost] = useState<any>(null);
   const [editContent, setEditContent] = useState('');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
-  const filteredPosts = moderatedPosts.filter((post) => {
-    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      post.author.username.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || post.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  // Fetch reported posts
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['moderator-reported-posts', page, searchQuery, statusFilter],
+    queryFn: () => moderatorService.getReportedPosts(page, 20, searchQuery, statusFilter),
+    placeholderData: (previousData) => previousData,
   });
 
-  const handleToggleVisibility = (post: ModeratedPost) => {
-    const newStatus = post.status === 'hidden' ? 'visível' : 'oculto';
-    toast.success(`Post marcado como ${newStatus}`);
+  const posts = data?.data || [];
+  const meta = data?.meta;
+
+  // Toggle visibility mutation
+  const toggleVisibilityMutation = useMutation({
+    mutationFn: async (post: any) => {
+      const action = post.status === 'hidden' ? 'UNHIDE_POST' : 'HIDE_POST';
+      await moderatorService.takeAction({
+        targetId: post.id,
+        targetType: 'POST',
+        actionType: action,
+        reason: `Post ${post.status === 'hidden' ? 'publicado' : 'ocultado'} pelo moderador`,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['moderator-reported-posts'] });
+      toast.success('Status do post atualizado com sucesso');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Erro ao atualizar post');
+    },
+  });
+
+  const handleToggleVisibility = (post: any) => {
+    toggleVisibilityMutation.mutate(post);
   };
 
-  const handleToggleLock = (post: ModeratedPost) => {
-    const action = post.status === 'locked' ? 'desbloqueado' : 'bloqueado';
-    toast.success(`Post ${action} para novos comentários`);
+  const handleToggleLock = (post: any) => {
+    toast.info('Funcionalidade de bloqueio de posts em desenvolvimento');
   };
 
   const handleEditPost = () => {
-    toast.success('Post editado com sucesso');
+    toast.info('Funcionalidade de edição de posts em desenvolvimento');
     setIsEditDialogOpen(false);
     setSelectedPost(null);
     setEditContent('');
@@ -136,11 +150,18 @@ export default function ModeratorPosts() {
       {/* Posts List */}
       <Card>
         <CardHeader>
-          <CardTitle>Posts ({filteredPosts.length})</CardTitle>
+          <CardTitle>Posts Reportados ({isLoading ? '...' : posts.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredPosts.map((post) => (
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Carregando posts...</div>
+          ) : error ? (
+            <div className="text-center py-8 text-destructive">Erro ao carregar posts</div>
+          ) : posts.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">Nenhum post reportado encontrado</div>
+          ) : (
+            <div className="space-y-4">
+            {posts.map((post: any) => (
               <div 
                 key={post.id} 
                 className="rounded-lg border border-border p-4 transition-colors hover:bg-accent/30"
@@ -183,7 +204,7 @@ export default function ModeratorPosts() {
                   
                   <div className="flex flex-col gap-2">
                     <Button size="sm" variant="outline" asChild>
-                      <Link to={`/posts/${post.id}`} target="_blank">
+                      <Link to={`/posts/${post.slug}`} target="_blank">
                         <ExternalLink className="mr-1 h-4 w-4" />
                         Ver
                       </Link>
@@ -196,6 +217,7 @@ export default function ModeratorPosts() {
                       size="sm" 
                       variant="outline" 
                       onClick={() => handleToggleVisibility(post)}
+                      disabled={toggleVisibilityMutation.isLoading}
                     >
                       {post.status === 'hidden' ? (
                         <><Eye className="mr-1 h-4 w-4" /> Mostrar</>
@@ -219,6 +241,7 @@ export default function ModeratorPosts() {
               </div>
             ))}
           </div>
+          )}
         </CardContent>
       </Card>
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Search, 
   Eye,
@@ -32,7 +33,7 @@ import {
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { mockComments, mockPosts } from '@/lib/mockData';
+import { moderatorService } from '@/services/moderator.service';
 
 interface ModeratedComment {
   id: string;
@@ -48,47 +49,82 @@ interface ModeratedComment {
   createdAt: string;
 }
 
-const allComments = Object.values(mockComments).flat();
-const moderatedComments: ModeratedComment[] = allComments.slice(0, 6).map((comment, index) => ({
-  id: comment.id,
-  content: comment.content.slice(0, 200),
-  postTitle: mockPosts.find(p => p.id === comment.postId)?.title || 'Post',
-  postId: comment.postId,
-  author: comment.author,
-  reports: [2, 0, 4, 1, 3, 0][index],
-  status: index === 2 ? 'hidden' : 'visible',
-  createdAt: comment.createdAt,
-}));
-
 export default function ModeratorComments() {
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedComment, setSelectedComment] = useState<ModeratedComment | null>(null);
-  const [actionType, setActionType] = useState<'hide' | 'delete' | 'warn' | null>(null);
+  const [selectedComment, setSelectedComment] = useState<any>(null);
+  const [actionType, setActionType] = useState<'delete' | 'warn' | null>(null);
   const [warningMessage, setWarningMessage] = useState('');
+  const [page, setPage] = useState(1);
 
-  const filteredComments = moderatedComments.filter((comment) => {
-    const matchesSearch = comment.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      comment.author.username.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || comment.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  // Fetch reported comments
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['moderator-reported-comments', page, searchQuery, statusFilter],
+    queryFn: () => moderatorService.getReportedComments(page, 20, searchQuery, statusFilter),
+    placeholderData: (previousData) => previousData,
+  });
+
+  const comments = data?.data || [];
+  const meta = data?.meta;
+
+  // Delete comment mutation
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (comment: any) => {
+      await moderatorService.takeAction({
+        targetId: comment.id,
+        targetType: 'COMMENT',
+        actionType: 'DELETE_COMMENT',
+        reason: 'Comentário removido pelo moderador',
+        notes: warningMessage,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['moderator-reported-comments'] });
+      toast.success('Comentário removido com sucesso');
+      setActionType(null);
+      setSelectedComment(null);
+      setWarningMessage('');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Erro ao remover comentário');
+    },
+  });
+
+  // Warn user mutation
+  const warnUserMutation = useMutation({
+    mutationFn: async (comment: any) => {
+      await moderatorService.takeAction({
+        targetId: comment.id,
+        targetType: 'COMMENT',
+        actionType: 'WARN_USER',
+        reason: 'Aviso enviado ao usuário',
+        notes: warningMessage,
+      });
+    },
+    onSuccess: () => {
+      toast.success('Aviso enviado ao usuário com sucesso');
+      setActionType(null);
+      setSelectedComment(null);
+      setWarningMessage('');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Erro ao enviar aviso');
+    },
   });
 
   const handleAction = () => {
-    const messages = {
-      hide: 'Comentário ocultado',
-      delete: 'Comentário removido',
-      warn: 'Aviso enviado ao usuário',
-    };
-    toast.success(messages[actionType!]);
-    setActionType(null);
-    setSelectedComment(null);
-    setWarningMessage('');
+    if (!selectedComment) return;
+
+    if (actionType === 'delete') {
+      deleteCommentMutation.mutate(selectedComment);
+    } else if (actionType === 'warn') {
+      warnUserMutation.mutate(selectedComment);
+    }
   };
 
-  const handleToggleVisibility = (comment: ModeratedComment) => {
-    const action = comment.status === 'hidden' ? 'visível' : 'oculto';
-    toast.success(`Comentário marcado como ${action}`);
+  const handleToggleVisibility = (comment: any) => {
+    toast.info('Funcionalidade de ocultar comentários em desenvolvimento');
   };
 
   return (
@@ -132,12 +168,19 @@ export default function ModeratorComments() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
-            Comentários ({filteredComments.length})
+            Comentários Reportados ({isLoading ? '...' : comments.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Carregando comentários...</div>
+          ) : error ? (
+            <div className="text-center py-8 text-destructive">Erro ao carregar comentários</div>
+          ) : comments.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">Nenhum comentário reportado encontrado</div>
+          ) : (
           <div className="space-y-4">
-            {filteredComments.map((comment) => (
+            {comments.map((comment: any) => (
               <div 
                 key={comment.id} 
                 className="rounded-lg border border-border p-4 transition-colors hover:bg-accent/30"
@@ -214,6 +257,7 @@ export default function ModeratorComments() {
               </div>
             ))}
           </div>
+          )}
         </CardContent>
       </Card>
 

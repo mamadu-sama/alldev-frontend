@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Search, 
   Eye,
@@ -35,6 +36,7 @@ import {
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { moderatorService } from '@/services/moderator.service';
 
 interface Report {
   id: string;
@@ -54,49 +56,6 @@ interface Report {
   createdAt: string;
 }
 
-const mockReports: Report[] = [
-  {
-    id: '1',
-    type: 'post',
-    reason: 'Spam',
-    description: 'Post promovendo produto sem relevância técnica.',
-    reportedBy: { username: 'vigilant_dev', avatarUrl: 'https://i.pravatar.cc/150?u=vig' },
-    target: { title: 'Compre agora!!' },
-    status: 'pending',
-    createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '2',
-    type: 'comment',
-    reason: 'Assédio',
-    description: 'Comentário hostil e ofensivo.',
-    reportedBy: { username: 'concerned_user', avatarUrl: 'https://i.pravatar.cc/150?u=con' },
-    target: { content: 'Você não deveria estar programando...' },
-    status: 'pending',
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '3',
-    type: 'user',
-    reason: 'Comportamento Tóxico',
-    description: 'Usuário com padrão de comentários negativos.',
-    reportedBy: { username: 'mod_helper', avatarUrl: 'https://i.pravatar.cc/150?u=mod' },
-    target: { username: 'toxic_troll' },
-    status: 'escalated',
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '4',
-    type: 'post',
-    reason: 'Desinformação',
-    description: 'Informação técnica incorreta que pode causar problemas.',
-    reportedBy: { username: 'expert_dev', avatarUrl: 'https://i.pravatar.cc/150?u=exp' },
-    target: { title: 'Como usar eval() com segurança' },
-    status: 'resolved',
-    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-  },
-];
-
 const typeIcons = {
   post: FileText,
   comment: MessageSquare,
@@ -104,33 +63,55 @@ const typeIcons = {
 };
 
 export default function ModeratorReports() {
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [selectedReport, setSelectedReport] = useState<any>(null);
   const [actionType, setActionType] = useState<'resolve' | 'dismiss' | 'escalate' | null>(null);
   const [actionNote, setActionNote] = useState('');
+  const [page, setPage] = useState(1);
 
-  const filteredReports = mockReports.filter((report) => {
-    const matchesSearch = report.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.reportedBy.username.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || report.status === statusFilter;
-    const matchesType = typeFilter === 'all' || report.type === typeFilter;
-    return matchesSearch && matchesStatus && matchesType;
+  // Fetch reports
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['moderator-reports', page, searchQuery, statusFilter, typeFilter],
+    queryFn: () => moderatorService.getReports(page, 20, searchQuery, statusFilter, typeFilter),
+    placeholderData: (previousData) => previousData,
   });
 
-  const pendingCount = mockReports.filter(r => r.status === 'pending').length;
+  const reports = data?.data || [];
+  const meta = data?.meta;
+  const pendingCount = reports.filter((r: any) => r.status === 'pending').length;
+
+  // Resolve report mutation
+  const resolveReportMutation = useMutation({
+    mutationFn: async ({ reportId, action, notes }: { reportId: string; action: 'resolve' | 'dismiss' | 'escalate'; notes?: string }) => {
+      await moderatorService.resolveReport(reportId, action, notes);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['moderator-reports'] });
+      const messages = {
+        resolve: 'Denúncia resolvida',
+        dismiss: 'Denúncia descartada',
+        escalate: 'Denúncia escalada para administrador',
+      };
+      toast.success(messages[actionType!]);
+      setActionType(null);
+      setSelectedReport(null);
+      setActionNote('');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error?.message || 'Erro ao processar denúncia');
+    },
+  });
 
   const handleAction = () => {
-    const messages = {
-      resolve: 'Denúncia resolvida',
-      dismiss: 'Denúncia descartada',
-      escalate: 'Denúncia escalada para administrador',
-    };
-    toast.success(messages[actionType!]);
-    setActionType(null);
-    setSelectedReport(null);
-    setActionNote('');
+    if (!selectedReport || !actionType) return;
+    resolveReportMutation.mutate({
+      reportId: selectedReport.id,
+      action: actionType,
+      notes: actionNote,
+    });
   };
 
   return (
@@ -193,12 +174,19 @@ export default function ModeratorReports() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5" />
-            Denúncias ({filteredReports.length})
+            Denúncias ({isLoading ? '...' : reports.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Carregando denúncias...</div>
+          ) : error ? (
+            <div className="text-center py-8 text-destructive">Erro ao carregar denúncias</div>
+          ) : reports.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">Nenhuma denúncia encontrada</div>
+          ) : (
           <div className="space-y-4">
-            {filteredReports.map((report) => {
+            {reports.map((report: any) => {
               const TypeIcon = typeIcons[report.type];
               return (
                 <div 
@@ -294,6 +282,7 @@ export default function ModeratorReports() {
               );
             })}
           </div>
+          )}
         </CardContent>
       </Card>
 
@@ -326,12 +315,13 @@ export default function ModeratorReports() {
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setActionType(null)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setActionType(null)} disabled={resolveReportMutation.isLoading}>Cancelar</Button>
             <Button 
               variant={actionType === 'escalate' ? 'destructive' : 'default'}
               onClick={handleAction}
+              disabled={resolveReportMutation.isLoading}
             >
-              Confirmar
+              {resolveReportMutation.isLoading ? 'Processando...' : 'Confirmar'}
             </Button>
           </DialogFooter>
         </DialogContent>

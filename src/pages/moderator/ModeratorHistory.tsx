@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { 
   Search, 
   Filter,
@@ -23,6 +24,8 @@ import {
 } from '@/components/ui/select';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { moderatorService } from '@/services/moderator.service';
+import { Loader2 } from 'lucide-react';
 
 interface HistoryItem {
   id: string;
@@ -90,34 +93,38 @@ const mockHistory: HistoryItem[] = [
   },
 ];
 
-const actionConfig = {
-  approve: { icon: CheckCircle, label: 'Aprovado', color: 'text-success' },
-  reject: { icon: XCircle, label: 'Rejeitado', color: 'text-destructive' },
-  edit: { icon: Edit, label: 'Editado', color: 'text-blue-500' },
-  hide: { icon: Eye, label: 'Ocultado', color: 'text-orange-500' },
-  warn: { icon: AlertTriangle, label: 'Aviso Enviado', color: 'text-warning' },
-  escalate: { icon: ArrowUp, label: 'Escalado', color: 'text-purple-500' },
+const actionConfig: Record<string, { icon: any; label: string; color: string }> = {
+  APPROVE_CONTENT: { icon: CheckCircle, label: 'Aprovado', color: 'text-success' },
+  HIDE_POST: { icon: Eye, label: 'Ocultado', color: 'text-orange-500' },
+  UNHIDE_POST: { icon: Eye, label: 'Publicado', color: 'text-blue-500' },
+  DELETE_POST: { icon: XCircle, label: 'Post Deletado', color: 'text-destructive' },
+  DELETE_COMMENT: { icon: XCircle, label: 'Comentário Deletado', color: 'text-destructive' },
+  WARN_USER: { icon: AlertTriangle, label: 'Aviso Enviado', color: 'text-warning' },
+  BAN_USER: { icon: XCircle, label: 'Usuário Banido', color: 'text-destructive' },
+  UNBAN_USER: { icon: CheckCircle, label: 'Usuário Desbanido', color: 'text-success' },
+  ESCALATE: { icon: ArrowUp, label: 'Escalado', color: 'text-purple-500' },
 };
 
 export default function ModeratorHistory() {
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
 
-  const filteredHistory = mockHistory.filter((item) => {
-    const matchesSearch = 
-      item.targetTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.targetAuthor.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.note && item.note.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesAction = actionFilter === 'all' || item.action === actionFilter;
-    return matchesSearch && matchesAction;
+  // Fetch history
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['moderator-history', page, searchQuery, actionFilter],
+    queryFn: () => moderatorService.getHistory(page, 20, searchQuery, actionFilter),
+    placeholderData: (previousData) => previousData,
   });
 
-  // Stats
-  const stats = {
-    total: mockHistory.length,
-    approved: mockHistory.filter(i => i.action === 'approve').length,
-    rejected: mockHistory.filter(i => i.action === 'reject').length,
-    warnings: mockHistory.filter(i => i.action === 'warn').length,
+  const history = data?.data || [];
+  const meta = data?.meta;
+  const stats = data?.stats || {
+    total: 0,
+    approved: 0,
+    hidden: 0,
+    deleted: 0,
+    warnings: 0,
   };
 
   return (
@@ -144,13 +151,13 @@ export default function ModeratorHistory() {
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-destructive">{stats.rejected}</div>
-            <div className="text-sm text-muted-foreground">Rejeitados</div>
+            <div className="text-2xl font-bold text-orange-500">{isLoading ? '...' : stats.hidden}</div>
+            <div className="text-sm text-muted-foreground">Ocultados</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-warning">{stats.warnings}</div>
+            <div className="text-2xl font-bold text-warning">{isLoading ? '...' : stats.warnings}</div>
             <div className="text-sm text-muted-foreground">Avisos</div>
           </CardContent>
         </Card>
@@ -176,12 +183,14 @@ export default function ModeratorHistory() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="approve">Aprovados</SelectItem>
-                <SelectItem value="reject">Rejeitados</SelectItem>
-                <SelectItem value="edit">Editados</SelectItem>
-                <SelectItem value="hide">Ocultados</SelectItem>
-                <SelectItem value="warn">Avisos</SelectItem>
-                <SelectItem value="escalate">Escalados</SelectItem>
+                <SelectItem value="APPROVE_CONTENT">Aprovados</SelectItem>
+                <SelectItem value="HIDE_POST">Posts Ocultados</SelectItem>
+                <SelectItem value="UNHIDE_POST">Posts Publicados</SelectItem>
+                <SelectItem value="DELETE_POST">Posts Deletados</SelectItem>
+                <SelectItem value="DELETE_COMMENT">Comentários Deletados</SelectItem>
+                <SelectItem value="WARN_USER">Avisos</SelectItem>
+                <SelectItem value="BAN_USER">Banimentos</SelectItem>
+                <SelectItem value="ESCALATE">Escalados</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -193,13 +202,27 @@ export default function ModeratorHistory() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            Histórico ({filteredHistory.length})
+            Histórico ({isLoading ? '...' : history.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <Loader2 className="h-12 w-12 animate-spin mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">Carregando histórico...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12 text-destructive">
+              Erro ao carregar histórico
+            </div>
+          ) : history.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              Nenhuma ação encontrada
+            </div>
+          ) : (
           <div className="space-y-4">
-            {filteredHistory.map((item) => {
-              const config = actionConfig[item.action];
+            {history.map((item: any) => {
+              const config = actionConfig[item.actionType] || actionConfig['APPROVE_CONTENT'];
               const Icon = config.icon;
               
               return (
@@ -215,16 +238,22 @@ export default function ModeratorHistory() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="outline" size="sm">{config.label}</Badge>
                       <Badge variant="secondary" size="sm">
-                        {item.targetType === 'post' ? 'Post' : 'Comentário'}
+                        {item.targetType === 'POST' ? 'Post' : item.targetType === 'COMMENT' ? 'Comentário' : 'Usuário'}
                       </Badge>
                     </div>
                     
                     <p className="mt-1 font-medium text-foreground">{item.targetTitle}</p>
                     <p className="text-sm text-muted-foreground">por @{item.targetAuthor}</p>
                     
-                    {item.note && (
-                      <p className="mt-2 text-sm text-muted-foreground italic">
-                        "{item.note}"
+                    {item.reason && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        <strong>Motivo:</strong> {item.reason}
+                      </p>
+                    )}
+                    
+                    {item.notes && (
+                      <p className="mt-1 text-sm text-muted-foreground italic">
+                        <strong>Notas:</strong> "{item.notes}"
                       </p>
                     )}
                   </div>
@@ -236,6 +265,7 @@ export default function ModeratorHistory() {
               );
             })}
           </div>
+          )}
         </CardContent>
       </Card>
     </div>

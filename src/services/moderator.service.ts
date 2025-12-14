@@ -93,5 +93,71 @@ export const moderatorService = {
   async takeAction(actionData: TakeActionData): Promise<void> {
     await api.post('/moderator/actions', actionData);
   },
+
+  async getReportedPosts(
+    page: number = 1,
+    limit: number = 20,
+    search?: string,
+    status?: string
+  ): Promise<{ data: any[]; meta: any }> {
+    const params: any = { page, limit };
+    if (search) params.search = search;
+    if (status && status !== 'all') params.status = status;
+
+    const response = await api.get('/moderator/posts/reported', { params });
+    return response.data;
+  },
+
+  async getReportedComments(
+    page: number = 1,
+    limit: number = 20,
+    search?: string,
+    status?: string
+  ): Promise<{ data: any[]; meta: any }> {
+    const params: any = { page, limit };
+    if (search) params.search = search;
+    if (status && status !== 'all') params.status = status;
+
+    const response = await api.get('/moderator/comments/reported', { params });
+    return response.data;
+  },
+
+  async getReports(
+    page: number = 1,
+    limit: number = 20,
+    search?: string,
+    status?: string,
+    type?: string
+  ): Promise<{ data: any[]; meta: any }> {
+    const params: any = { page, limit };
+    if (search) params.search = search;
+    if (status && status !== 'all') params.status = status;
+    if (type && type !== 'all') params.type = type;
+
+    const response = await api.get('/moderator/reports', { params });
+    return response.data;
+  },
+
+  async resolveReport(
+    reportId: string,
+    action: 'resolve' | 'dismiss' | 'escalate',
+    notes?: string
+  ): Promise<void> {
+    await api.post(`/moderator/reports/${reportId}/resolve`, { action, notes });
+  },
+
+  async getHistory(
+    page: number = 1,
+    limit: number = 20,
+    search?: string,
+    actionType?: string
+  ): Promise<{ data: any[]; meta: any; stats: any }> {
+    const params: any = { page, limit };
+    if (search) params.search = search;
+    if (actionType && actionType !== 'all') params.actionType = actionType;
+
+    const response = await api.get('/moderator/history', { params });
+    return response.data;
+  },
 };
 
