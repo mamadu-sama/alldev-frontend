@@ -11,7 +11,8 @@ import {
   Shield,
   Bell,
   Lightbulb,
-  Mail
+  Mail,
+  UserCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +27,7 @@ const adminNavItems = [
   { icon: Lightbulb, label: 'Sugestões', href: '/admin/features' },
   { icon: Mail, label: 'Mensagens', href: '/admin/messages' },
   { icon: Settings, label: 'Configurações', href: '/admin/settings' },
+  { icon: UserCircle, label: 'Meu Perfil', href: '/admin/profile' },
 ];
 
 export function AdminSidebar() {

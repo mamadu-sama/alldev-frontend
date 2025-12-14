@@ -47,6 +47,8 @@ import ModeratorPosts from "@/pages/moderator/ModeratorPosts";
 import ModeratorComments from "@/pages/moderator/ModeratorComments";
 import ModeratorReports from "@/pages/moderator/ModeratorReports";
 import ModeratorHistory from "@/pages/moderator/ModeratorHistory";
+import ModeratorProfile from "@/pages/moderator/ModeratorProfile";
+import AdminProfile from "@/pages/admin/AdminProfile";
 import { MaintenancePage } from "@/pages/MaintenancePage";
 import { useMaintenanceStore } from "@/stores/maintenanceStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -104,6 +106,7 @@ function AppRoutes() {
           <Route path="/admin/features" element={<AdminFeatures />} />
           <Route path="/admin/messages" element={<AdminMessages />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
+          <Route path="/admin/profile" element={<AdminProfile />} />
         </Route>
 
         {/* Moderator routes */}
@@ -114,6 +117,7 @@ function AppRoutes() {
           <Route path="/moderator/comments" element={<ModeratorComments />} />
           <Route path="/moderator/reports" element={<ModeratorReports />} />
           <Route path="/moderator/history" element={<ModeratorHistory />} />
+          <Route path="/moderator/profile" element={<ModeratorProfile />} />
         </Route>
 
         {/* Main routes */}

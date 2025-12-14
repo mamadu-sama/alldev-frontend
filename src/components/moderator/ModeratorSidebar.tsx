@@ -7,7 +7,8 @@ import {
   ChevronLeft,
   ShieldCheck,
   AlertCircle,
-  Clock
+  Clock,
+  UserCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ const modNavItems = [
   { icon: MessageSquare, label: 'Comentários', href: '/moderator/comments' },
   { icon: AlertCircle, label: 'Denúncias', href: '/moderator/reports' },
   { icon: Clock, label: 'Histórico', href: '/moderator/history' },
+  { icon: UserCircle, label: 'Meu Perfil', href: '/moderator/profile' },
 ];
 
 export function ModeratorSidebar() {

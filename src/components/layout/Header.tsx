@@ -12,6 +12,7 @@ import {
   Settings,
   Code2,
   Shield,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -58,6 +59,7 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
   };
 
   const isAdmin = user?.roles?.includes('ADMIN');
+  const isModerator = user?.roles?.includes('MODERATOR') || isAdmin;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -228,16 +230,27 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                     <Settings className="mr-2 h-4 w-4" />
                     Editar Perfil
                   </DropdownMenuItem>
-                  {isAdmin && (
+                  {(isAdmin || isModerator) && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => navigate("/admin")}
-                        className="text-primary focus:text-primary font-medium"
-                      >
-                        <Shield className="mr-2 h-4 w-4" />
-                        Painel Admin
-                      </DropdownMenuItem>
+                      {isAdmin && (
+                        <DropdownMenuItem 
+                          onClick={() => navigate("/admin")}
+                          className="text-primary focus:text-primary font-medium"
+                        >
+                          <Shield className="mr-2 h-4 w-4" />
+                          Painel Admin
+                        </DropdownMenuItem>
+                      )}
+                      {isModerator && !isAdmin && (
+                        <DropdownMenuItem 
+                          onClick={() => navigate("/moderator")}
+                          className="text-purple-600 focus:text-purple-600 font-medium"
+                        >
+                          <ShieldCheck className="mr-2 h-4 w-4" />
+                          Painel Moderador
+                        </DropdownMenuItem>
+                      )}
                     </>
                   )}
                   <DropdownMenuItem onClick={toggleTheme} className="sm:hidden">
