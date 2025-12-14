@@ -25,6 +25,7 @@ import CookiePolicy from "@/pages/CookiePolicy";
 import Contact from "@/pages/Contact";
 import FAQ from "@/pages/FAQ";
 import FeatureContribution from "@/pages/FeatureContribution";
+import FeatureRequestDetails from "@/pages/FeatureRequestDetails";
 import CookieConsentBanner from "@/components/common/CookieConsentBanner";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
@@ -38,6 +39,7 @@ import AdminTags from "@/pages/admin/AdminTags";
 import AdminReports from "@/pages/admin/AdminReports";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminNotifications from "@/pages/admin/AdminNotifications";
+import AdminFeatures from "@/pages/admin/AdminFeatures";
 import ModeratorDashboard from "@/pages/moderator/ModeratorDashboard";
 import ModeratorQueue from "@/pages/moderator/ModeratorQueue";
 import ModeratorPosts from "@/pages/moderator/ModeratorPosts";
@@ -54,15 +56,17 @@ function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { isMaintenanceMode } = useMaintenanceStore();
   const { user } = useAuthStore();
-  
+
   // Allow admin and moderator routes even in maintenance mode
-  const isPrivilegedRoute = location.pathname.startsWith('/admin') || location.pathname.startsWith('/moderator');
-  
+  const isPrivilegedRoute =
+    location.pathname.startsWith("/admin") ||
+    location.pathname.startsWith("/moderator");
+
   // Check if user has admin or moderator role
-  const isAdminOrModerator = user?.roles?.some(role => 
-    role === 'ADMIN' || role === 'MODERATOR'
+  const isAdminOrModerator = user?.roles?.some(
+    (role) => role === "ADMIN" || role === "MODERATOR"
   );
-  
+
   // Show maintenance page only if:
   // 1. Maintenance mode is ON
   // 2. NOT a privileged route (/admin, /moderator)
@@ -70,7 +74,7 @@ function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
   if (isMaintenanceMode && !isPrivilegedRoute && !isAdminOrModerator) {
     return <MaintenancePage />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -96,6 +100,7 @@ function AppRoutes() {
           <Route path="/admin/tags" element={<AdminTags />} />
           <Route path="/admin/reports" element={<AdminReports />} />
           <Route path="/admin/notifications" element={<AdminNotifications />} />
+          <Route path="/admin/features" element={<AdminFeatures />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
         </Route>
 
@@ -126,7 +131,14 @@ function AppRoutes() {
           <Route path="/cookies" element={<CookiePolicy />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/faq" element={<FAQ />} />
-          <Route path="/feature-contribution" element={<FeatureContribution />} />
+          <Route
+            path="/feature-contribution"
+            element={<FeatureContribution />}
+          />
+          <Route
+            path="/feature-requests/:id"
+            element={<FeatureRequestDetails />}
+          />
         </Route>
 
         {/* 404 */}

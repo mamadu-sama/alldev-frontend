@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -94,6 +95,7 @@ const categories = [
 
 const FeatureContribution = () => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [suggestions, setSuggestions] = useState<FeatureRequest[]>([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -358,7 +360,8 @@ const FeatureContribution = () => {
                 return (
                   <Card
                     key={suggestion.id}
-                    className="hover:border-primary/50 transition-colors"
+                    className="hover:border-primary/50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/feature-requests/${suggestion.id}`)}
                   >
                     <CardContent className="p-6">
                       <div className="flex gap-4">
@@ -370,7 +373,10 @@ const FeatureContribution = () => {
                             }
                             size="sm"
                             className="h-12 w-12 rounded-full"
-                            onClick={() => handleVote(suggestion.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleVote(suggestion.id);
+                            }}
                             disabled={!user}
                             title={!user ? "Faça login para votar" : ""}
                           >
@@ -398,11 +404,11 @@ const FeatureContribution = () => {
                             </Badge>
                           </div>
 
-                          <h3 className="text-xl font-semibold text-foreground mb-2">
+                          <h3 className="text-xl font-semibold text-foreground mb-2 hover:text-primary">
                             {suggestion.title}
                           </h3>
 
-                          <p className="text-muted-foreground mb-4">
+                          <p className="text-muted-foreground mb-4 line-clamp-2">
                             {suggestion.description}
                           </p>
 

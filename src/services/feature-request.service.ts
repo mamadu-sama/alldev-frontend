@@ -86,11 +86,9 @@ export const featureRequestService = {
 
   async addComment(
     id: string,
-    content: string
+    data: { content: string }
   ): Promise<FeatureRequestComment> {
-    const response = await api.post(`/feature-requests/${id}/comments`, {
-      content,
-    });
+    const response = await api.post(`/feature-requests/${id}/comments`, data);
     return response.data.data;
   },
 
