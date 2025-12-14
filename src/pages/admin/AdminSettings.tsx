@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Save,
   Globe,
@@ -7,7 +7,8 @@ import {
   Palette,
   Database,
   Wrench,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,44 +25,127 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
+import { adminService } from '@/services/admin.service';
+import { useToast } from '@/hooks/use-toast';
 import { useMaintenanceStore } from '@/stores/maintenanceStore';
 
 export default function AdminSettings() {
-  const { 
-    isMaintenanceMode, 
-    maintenanceMessage, 
-    estimatedEndTime,
-    toggleMaintenanceMode,
-    setMaintenanceMessage,
-    setEstimatedEndTime
-  } = useMaintenanceStore();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [settings, setSettings] = useState<any>({});
+  const [maintenance, setMaintenance] = useState<any>({});
+  const { setMaintenance: setGlobalMaintenance } = useMaintenanceStore();
 
-  const [settings, setSettings] = useState({
-    siteName: 'Alldev',
-    siteDescription: 'Comunidade de desenvolvedores',
-    siteUrl: 'https://alldev.com',
-    contactEmail: 'contato@alldev.com',
-    enableRegistration: true,
-    requireEmailVerification: true,
-    enableNotifications: true,
-    enableEmailNotifications: true,
-    moderationMode: 'post',
-    minReputationToComment: 0,
-    minReputationToPost: 0,
-    maxTagsPerPost: 5,
-    primaryColor: '#3b82f6',
-    darkModeDefault: true,
-  });
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const handleSave = () => {
-    toast.success('Configurações salvas com sucesso');
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [settingsData, maintenanceData] = await Promise.all([
+        adminService.getSettings(),
+        adminService.getMaintenanceMode(),
+      ]);
+      setSettings(settingsData);
+      setMaintenance(maintenanceData);
+      // Atualizar o store global de manutenção
+      setGlobalMaintenance(maintenanceData.isEnabled, maintenanceData.message, maintenanceData.endTime);
+    } catch (error) {
+      toast({
+        title: 'Erro ao carregar configurações',
+        description: 'Não foi possível carregar as configurações.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleToggleMaintenance = () => {
-    toggleMaintenanceMode();
-    toast.success(isMaintenanceMode ? 'Modo de manutenção desativado' : 'Modo de manutenção ativado');
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await adminService.updateSettings(settings);
+      toast({
+        title: 'Configurações salvas!',
+        description: 'As configurações foram atualizadas com sucesso.',
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível salvar as configurações.';
+      toast({
+        title: 'Erro ao salvar',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  const handleToggleMaintenance = async () => {
+    try {
+      const newStatus = !maintenance.isEnabled;
+      const updatedMaintenance = {
+        isEnabled: newStatus,
+        message: maintenance.message,
+        endTime: maintenance.endTime,
+      };
+      
+      await adminService.updateMaintenanceMode(updatedMaintenance);
+      setMaintenance((prev: any) => ({ ...prev, isEnabled: newStatus }));
+      
+      // Atualizar o store global
+      setGlobalMaintenance(newStatus, maintenance.message, maintenance.endTime);
+      
+      toast({
+        title: newStatus ? 'Modo de manutenção ativado!' : 'Modo de manutenção desativado!',
+        description: newStatus 
+          ? 'Os usuários agora verão a página de manutenção.' 
+          : 'Os usuários podem acessar o sistema normalmente.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível alterar o modo de manutenção.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSaveMaintenance = async () => {
+    try {
+      await adminService.updateMaintenanceMode(maintenance);
+      
+      // Atualizar o store global
+      setGlobalMaintenance(maintenance.isEnabled, maintenance.message, maintenance.endTime);
+      
+      toast({
+        title: 'Configurações salvas!',
+        description: 'As configurações de manutenção foram atualizadas.',
+      });
+      
+      // Recarregar dados para garantir sincronização
+      await loadData();
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível salvar as configurações de manutenção.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -71,14 +155,15 @@ export default function AdminSettings() {
           <h1 className="text-3xl font-bold text-foreground">Configurações</h1>
           <p className="text-muted-foreground">Gerencie as configurações da plataforma</p>
         </div>
-        <Button onClick={handleSave}>
-          <Save className="mr-2 h-4 w-4" />
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {!isSaving && <Save className="mr-2 h-4 w-4" />}
           Salvar Alterações
         </Button>
       </div>
 
       {/* Maintenance Mode Alert */}
-      {isMaintenanceMode && (
+      {maintenance.isEnabled && (
         <div className="rounded-lg border border-warning bg-warning/10 p-4 flex items-center gap-3">
           <AlertTriangle className="h-5 w-5 text-warning" />
           <div className="flex-1">
@@ -136,16 +221,16 @@ export default function AdminSettings() {
                     <Label htmlFor="siteName">Nome do Site</Label>
                     <Input
                       id="siteName"
-                      value={settings.siteName}
-                      onChange={(e) => setSettings(prev => ({ ...prev, siteName: e.target.value }))}
+                      value={settings.siteName || ''}
+                      onChange={(e) => setSettings((prev: any) => ({ ...prev, siteName: e.target.value }))}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="siteUrl">URL do Site</Label>
                     <Input
                       id="siteUrl"
-                      value={settings.siteUrl}
-                      onChange={(e) => setSettings(prev => ({ ...prev, siteUrl: e.target.value }))}
+                      value={settings.siteUrl || ''}
+                      onChange={(e) => setSettings((prev: any) => ({ ...prev, siteUrl: e.target.value }))}
                     />
                   </div>
                 </div>
@@ -153,8 +238,8 @@ export default function AdminSettings() {
                   <Label htmlFor="siteDescription">Descrição</Label>
                   <Textarea
                     id="siteDescription"
-                    value={settings.siteDescription}
-                    onChange={(e) => setSettings(prev => ({ ...prev, siteDescription: e.target.value }))}
+                    value={settings.siteDescription || ''}
+                    onChange={(e) => setSettings((prev: any) => ({ ...prev, siteDescription: e.target.value }))}
                     rows={3}
                   />
                 </div>
@@ -163,8 +248,8 @@ export default function AdminSettings() {
                   <Input
                     id="contactEmail"
                     type="email"
-                    value={settings.contactEmail}
-                    onChange={(e) => setSettings(prev => ({ ...prev, contactEmail: e.target.value }))}
+                    value={settings.contactEmail || ''}
+                    onChange={(e) => setSettings((prev: any) => ({ ...prev, contactEmail: e.target.value }))}
                   />
                 </div>
               </CardContent>
@@ -187,8 +272,8 @@ export default function AdminSettings() {
                     <Input
                       id="maxTags"
                       type="number"
-                      value={settings.maxTagsPerPost}
-                      onChange={(e) => setSettings(prev => ({ ...prev, maxTagsPerPost: parseInt(e.target.value) }))}
+                      value={settings.maxTagsPerPost || 5}
+                      onChange={(e) => setSettings((prev: any) => ({ ...prev, maxTagsPerPost: parseInt(e.target.value) }))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -196,8 +281,8 @@ export default function AdminSettings() {
                     <Input
                       id="minRepPost"
                       type="number"
-                      value={settings.minReputationToPost}
-                      onChange={(e) => setSettings(prev => ({ ...prev, minReputationToPost: parseInt(e.target.value) }))}
+                      value={settings.minReputationToPost || 0}
+                      onChange={(e) => setSettings((prev: any) => ({ ...prev, minReputationToPost: parseInt(e.target.value) }))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -205,8 +290,8 @@ export default function AdminSettings() {
                     <Input
                       id="minRepComment"
                       type="number"
-                      value={settings.minReputationToComment}
-                      onChange={(e) => setSettings(prev => ({ ...prev, minReputationToComment: parseInt(e.target.value) }))}
+                      value={settings.minReputationToComment || 0}
+                      onChange={(e) => setSettings((prev: any) => ({ ...prev, minReputationToComment: parseInt(e.target.value) }))}
                     />
                   </div>
                 </div>
@@ -222,7 +307,7 @@ export default function AdminSettings() {
               <CardTitle className="flex items-center gap-2">
                 <Wrench className="h-5 w-5" />
                 Modo de Manutenção
-                {isMaintenanceMode && (
+                {maintenance.isEnabled && (
                   <Badge variant="warning" className="ml-2">Ativo</Badge>
                 )}
               </CardTitle>
@@ -239,7 +324,7 @@ export default function AdminSettings() {
                   </p>
                 </div>
                 <Switch
-                  checked={isMaintenanceMode}
+                  checked={maintenance.isEnabled || false}
                   onCheckedChange={handleToggleMaintenance}
                 />
               </div>
@@ -248,8 +333,8 @@ export default function AdminSettings() {
                 <Label htmlFor="maintenanceMessage">Mensagem de Manutenção</Label>
                 <Textarea
                   id="maintenanceMessage"
-                  value={maintenanceMessage}
-                  onChange={(e) => setMaintenanceMessage(e.target.value)}
+                  value={maintenance.message || ''}
+                  onChange={(e) => setMaintenance((prev: any) => ({ ...prev, message: e.target.value }))}
                   rows={3}
                   placeholder="Mensagem que será exibida aos usuários..."
                 />
@@ -263,20 +348,25 @@ export default function AdminSettings() {
                 <Input
                   id="estimatedEndTime"
                   type="datetime-local"
-                  value={estimatedEndTime || ''}
-                  onChange={(e) => setEstimatedEndTime(e.target.value || null)}
+                  value={maintenance.endTime ? new Date(maintenance.endTime).toISOString().slice(0, 16) : ''}
+                  onChange={(e) => setMaintenance((prev: any) => ({ ...prev, endTime: e.target.value ? new Date(e.target.value).toISOString() : null }))}
                 />
                 <p className="text-sm text-muted-foreground">
                   Informe quando a manutenção deve terminar (opcional)
                 </p>
               </div>
 
+              <Button onClick={handleSaveMaintenance} className="w-full">
+                <Save className="mr-2 h-4 w-4" />
+                Salvar Configurações de Manutenção
+              </Button>
+
               <div className="rounded-lg border border-border p-4 bg-muted/50">
                 <h4 className="font-medium mb-2">Preview da Página de Manutenção</h4>
                 <div className="rounded-lg border border-border bg-background p-4 text-center">
                   <Wrench className="h-8 w-8 mx-auto text-primary mb-2" />
                   <p className="font-medium">Em Manutenção</p>
-                  <p className="text-sm text-muted-foreground mt-1">{maintenanceMessage}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{maintenance.message || 'Estamos em manutenção. Voltaremos em breve!'}</p>
                 </div>
               </div>
             </CardContent>
@@ -304,8 +394,8 @@ export default function AdminSettings() {
                   </p>
                 </div>
                 <Switch
-                  checked={settings.enableRegistration}
-                  onCheckedChange={(checked) => setSettings(prev => ({ ...prev, enableRegistration: checked }))}
+                  checked={settings.enableRegistration ?? true}
+                  onCheckedChange={(checked) => setSettings((prev: any) => ({ ...prev, enableRegistration: checked }))}
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -316,15 +406,15 @@ export default function AdminSettings() {
                   </p>
                 </div>
                 <Switch
-                  checked={settings.requireEmailVerification}
-                  onCheckedChange={(checked) => setSettings(prev => ({ ...prev, requireEmailVerification: checked }))}
+                  checked={settings.requireEmailVerification ?? true}
+                  onCheckedChange={(checked) => setSettings((prev: any) => ({ ...prev, requireEmailVerification: checked }))}
                 />
               </div>
               <div className="space-y-2">
                 <Label>Modo de Moderação</Label>
                 <Select 
-                  value={settings.moderationMode} 
-                  onValueChange={(value) => setSettings(prev => ({ ...prev, moderationMode: value }))}
+                  value={settings.moderationMode || 'post'} 
+                  onValueChange={(value) => setSettings((prev: any) => ({ ...prev, moderationMode: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -364,8 +454,8 @@ export default function AdminSettings() {
                   </p>
                 </div>
                 <Switch
-                  checked={settings.enableNotifications}
-                  onCheckedChange={(checked) => setSettings(prev => ({ ...prev, enableNotifications: checked }))}
+                  checked={settings.enableNotifications ?? true}
+                  onCheckedChange={(checked) => setSettings((prev: any) => ({ ...prev, enableNotifications: checked }))}
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -376,8 +466,8 @@ export default function AdminSettings() {
                   </p>
                 </div>
                 <Switch
-                  checked={settings.enableEmailNotifications}
-                  onCheckedChange={(checked) => setSettings(prev => ({ ...prev, enableEmailNotifications: checked }))}
+                  checked={settings.enableEmailNotifications ?? true}
+                  onCheckedChange={(checked) => setSettings((prev: any) => ({ ...prev, enableEmailNotifications: checked }))}
                 />
               </div>
             </CardContent>
@@ -403,13 +493,13 @@ export default function AdminSettings() {
                   <Input
                     id="primaryColor"
                     type="color"
-                    value={settings.primaryColor}
-                    onChange={(e) => setSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
+                    value={settings.primaryColor || '#3b82f6'}
+                    onChange={(e) => setSettings((prev: any) => ({ ...prev, primaryColor: e.target.value }))}
                     className="w-16 h-10 p-1"
                   />
                   <Input
-                    value={settings.primaryColor}
-                    onChange={(e) => setSettings(prev => ({ ...prev, primaryColor: e.target.value }))}
+                    value={settings.primaryColor || '#3b82f6'}
+                    onChange={(e) => setSettings((prev: any) => ({ ...prev, primaryColor: e.target.value }))}
                     className="flex-1"
                   />
                 </div>
@@ -422,8 +512,8 @@ export default function AdminSettings() {
                   </p>
                 </div>
                 <Switch
-                  checked={settings.darkModeDefault}
-                  onCheckedChange={(checked) => setSettings(prev => ({ ...prev, darkModeDefault: checked }))}
+                  checked={settings.darkModeDefault ?? true}
+                  onCheckedChange={(checked) => setSettings((prev: any) => ({ ...prev, darkModeDefault: checked }))}
                 />
               </div>
             </CardContent>

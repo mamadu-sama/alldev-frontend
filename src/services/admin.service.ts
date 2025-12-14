@@ -153,27 +153,27 @@ export const adminService = {
 
   // Tags Management
   async getAllTags(): Promise<any> {
-    const response = await api.get('/tags');
+    const response = await api.get('/admin/tags');
     return response.data.data;
   },
 
   async createTag(data: { name: string; description: string }): Promise<any> {
-    const response = await api.post('/tags', data);
+    const response = await api.post('/admin/tags', data);
     return response.data.data;
   },
 
   async updateTag(tagId: string, data: { name: string; description: string }): Promise<any> {
-    const response = await api.patch(`/tags/${tagId}`, data);
+    const response = await api.patch(`/admin/tags/${tagId}`, data);
     return response.data.data;
   },
 
   async deleteTag(tagId: string): Promise<void> {
-    await api.delete(`/tags/${tagId}`);
+    await api.delete(`/admin/tags/${tagId}`);
   },
 
   // Reports Management
   async getAllReports(page: number = 1, limit: number = 50, status?: string): Promise<any> {
-    let url = `/reports?page=${page}&limit=${limit}`;
+    let url = `/admin/reports?page=${page}&limit=${limit}`;
     if (status && status !== 'all') {
       url += `&status=${status}`;
     }
@@ -185,6 +185,28 @@ export const adminService = {
   },
 
   async updateReportStatus(reportId: string, status: string, resolution?: string): Promise<void> {
-    await api.patch(`/reports/${reportId}`, { status, resolution });
+    await api.patch(`/admin/reports/${reportId}`, { status, resolution });
+  },
+
+  // Settings Management
+  async getSettings(): Promise<any> {
+    const response = await api.get('/admin/settings');
+    return response.data.data;
+  },
+
+  async updateSettings(data: any): Promise<any> {
+    const response = await api.patch('/admin/settings', data);
+    return response.data.data;
+  },
+
+  // Maintenance Mode
+  async getMaintenanceMode(): Promise<any> {
+    const response = await api.get('/admin/maintenance');
+    return response.data.data;
+  },
+
+  async updateMaintenanceMode(data: { isEnabled: boolean; message?: string; endTime?: string }): Promise<any> {
+    const response = await api.post('/admin/maintenance', data);
+    return response.data.data;
   },
 };

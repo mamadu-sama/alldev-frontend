@@ -23,6 +23,22 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Handle maintenance mode (503)
+    if (error.response?.status === 503 && error.response?.data?.error?.code === 'MAINTENANCE_MODE') {
+      const { useMaintenanceStore } = await import('@/stores/maintenanceStore');
+      const maintenanceData = error.response.data.error;
+      
+      // Update maintenance store (MaintenanceWrapper will handle the UI)
+      useMaintenanceStore.getState().setMaintenance(
+        true,
+        maintenanceData.message,
+        maintenanceData.endTime
+      );
+      
+      // Don't redirect - let MaintenanceWrapper handle it based on user roles
+      return Promise.reject(error);
+    }
+
     // If error is 401 and we haven't tried to refresh yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;

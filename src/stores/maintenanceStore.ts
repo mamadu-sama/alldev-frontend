@@ -8,6 +8,7 @@ interface MaintenanceState {
   toggleMaintenanceMode: () => void;
   setMaintenanceMessage: (message: string) => void;
   setEstimatedEndTime: (time: string | null) => void;
+  setMaintenance: (isEnabled: boolean, message: string, endTime?: string | null) => void;
 }
 
 export const useMaintenanceStore = create<MaintenanceState>()(
@@ -19,6 +20,11 @@ export const useMaintenanceStore = create<MaintenanceState>()(
       toggleMaintenanceMode: () => set((state) => ({ isMaintenanceMode: !state.isMaintenanceMode })),
       setMaintenanceMessage: (message) => set({ maintenanceMessage: message }),
       setEstimatedEndTime: (time) => set({ estimatedEndTime: time }),
+      setMaintenance: (isEnabled, message, endTime) => set({
+        isMaintenanceMode: isEnabled,
+        maintenanceMessage: message,
+        estimatedEndTime: endTime || null,
+      }),
     }),
     {
       name: 'maintenance-storage',

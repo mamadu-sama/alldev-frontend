@@ -46,17 +46,28 @@ import ModeratorReports from "@/pages/moderator/ModeratorReports";
 import ModeratorHistory from "@/pages/moderator/ModeratorHistory";
 import { MaintenancePage } from "@/pages/MaintenancePage";
 import { useMaintenanceStore } from "@/stores/maintenanceStore";
+import { useAuthStore } from "@/stores/authStore";
 
 const queryClient = new QueryClient();
 
 function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { isMaintenanceMode } = useMaintenanceStore();
+  const { user } = useAuthStore();
   
   // Allow admin and moderator routes even in maintenance mode
   const isPrivilegedRoute = location.pathname.startsWith('/admin') || location.pathname.startsWith('/moderator');
   
-  if (isMaintenanceMode && !isPrivilegedRoute) {
+  // Check if user has admin or moderator role
+  const isAdminOrModerator = user?.roles?.some(role => 
+    role === 'ADMIN' || role === 'MODERATOR'
+  );
+  
+  // Show maintenance page only if:
+  // 1. Maintenance mode is ON
+  // 2. NOT a privileged route (/admin, /moderator)
+  // 3. User is NOT admin or moderator
+  if (isMaintenanceMode && !isPrivilegedRoute && !isAdminOrModerator) {
     return <MaintenancePage />;
   }
   
