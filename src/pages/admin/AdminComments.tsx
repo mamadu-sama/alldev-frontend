@@ -1,13 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Search, 
   MoreHorizontal, 
   Trash2, 
   Eye,
-  Flag,
   Filter,
-  CheckCircle,
-  XCircle
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,13 +20,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,63 +27,92 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { mockComments, mockPosts } from '@/lib/mockData';
-import { toast } from 'sonner';
+import { adminService } from '@/services/admin.service';
+import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 
-interface CommentWithStatus {
+interface AdminComment {
   id: string;
   content: string;
-  author: {
-    username: string;
-    avatarUrl?: string;
-  };
-  postId: string;
-  postTitle: string;
   votes: number;
   isAccepted: boolean;
-  status: 'approved' | 'pending' | 'flagged';
   createdAt: string;
+  author: {
+    id: string;
+    username: string;
+    avatarUrl: string | null;
+  };
+  post: {
+    id: string;
+    title: string;
+    slug: string;
+  };
 }
 
-const allComments = Object.values(mockComments).flat();
-const commentsWithStatus: CommentWithStatus[] = allComments.map((comment, index) => ({
-  ...comment,
-  postTitle: mockPosts.find(p => p.id === comment.postId)?.title || 'Post',
-  status: index === 2 ? 'flagged' : index === 4 ? 'pending' : 'approved',
-}));
-
 export default function AdminComments() {
+  const { toast } = useToast();
+  const [comments, setComments] = useState<AdminComment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedComment, setSelectedComment] = useState<CommentWithStatus | null>(null);
-  const [dialogType, setDialogType] = useState<'delete' | 'approve' | 'reject' | null>(null);
+  const [selectedComment, setSelectedComment] = useState<AdminComment | null>(null);
+  const [dialogType, setDialogType] = useState<'delete' | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredComments = commentsWithStatus.filter((comment) => {
+  useEffect(() => {
+    loadComments();
+  }, []);
+
+  const loadComments = async () => {
+    try {
+      setIsLoading(true);
+      const response = await adminService.getAllComments(1, 100);
+      setComments(response.data);
+    } catch (error) {
+      toast({
+        title: 'Erro ao carregar comentários',
+        description: 'Não foi possível carregar a lista de comentários.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredComments = comments.filter((comment) => {
     const matchesSearch = comment.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      comment.author.username.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || comment.status === statusFilter;
-    return matchesSearch && matchesStatus;
+      comment.author.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      comment.post.title.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
   });
 
-  const handleDeleteComment = () => {
-    toast.success('Comentário removido com sucesso');
-    setDialogType(null);
-    setSelectedComment(null);
-  };
+  const handleDeleteComment = async () => {
+    if (!selectedComment) return;
 
-  const handleApproveComment = () => {
-    toast.success('Comentário aprovado com sucesso');
-    setDialogType(null);
-    setSelectedComment(null);
-  };
-
-  const handleRejectComment = () => {
-    toast.success('Comentário rejeitado');
-    setDialogType(null);
-    setSelectedComment(null);
+    setIsSubmitting(true);
+    try {
+      await adminService.deleteComment(selectedComment.id);
+      toast({
+        title: 'Comentário removido!',
+        description: 'O comentário foi removido com sucesso.',
+      });
+      await loadComments();
+      setDialogType(null);
+      setSelectedComment(null);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível remover o comentário.';
+      toast({
+        title: 'Erro ao remover comentário',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -110,24 +130,12 @@ export default function AdminComments() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por conteúdo ou autor..."
+                placeholder="Buscar por conteúdo, autor ou post..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <Filter className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="approved">Aprovados</SelectItem>
-                <SelectItem value="pending">Pendentes</SelectItem>
-                <SelectItem value="flagged">Denunciados</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>
@@ -138,104 +146,81 @@ export default function AdminComments() {
           <CardTitle>Lista de Comentários ({filteredComments.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredComments.map((comment) => (
-              <div 
-                key={comment.id} 
-                className="rounded-lg border border-border p-4 transition-colors hover:bg-accent/50"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <Avatar>
-                      <AvatarImage src={comment.author.avatarUrl} />
-                      <AvatarFallback>{comment.author.username.slice(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-foreground">{comment.author.username}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {formatDistanceToNow(new Date(comment.createdAt), { 
-                            addSuffix: true,
-                            locale: ptBR 
-                          })}
-                        </span>
-                        <Badge variant={
-                          comment.status === 'approved' ? 'success' : 
-                          comment.status === 'pending' ? 'warning' : 'destructive'
-                        } size="sm">
-                          {comment.status === 'approved' ? 'Aprovado' : 
-                           comment.status === 'pending' ? 'Pendente' : 'Denunciado'}
-                        </Badge>
-                        {comment.isAccepted && (
-                          <Badge variant="success" size="sm">✓ Aceito</Badge>
-                        )}
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredComments.length > 0 ? (
+            <div className="space-y-4">
+              {filteredComments.map((comment) => (
+                <div 
+                  key={comment.id} 
+                  className="rounded-lg border border-border p-4 transition-colors hover:bg-accent/50"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <Avatar>
+                        <AvatarImage src={comment.author.avatarUrl || undefined} />
+                        <AvatarFallback>{comment.author.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-foreground">{comment.author.username}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {formatDistanceToNow(new Date(comment.createdAt), { 
+                              addSuffix: true,
+                              locale: ptBR 
+                            })}
+                          </span>
+                          {comment.isAccepted && (
+                            <Badge variant="success" size="sm">✓ Aceito</Badge>
+                          )}
+                        </div>
+                        <p className="mt-2 text-foreground line-clamp-2">{comment.content}</p>
+                        <Link 
+                          to={`/posts/${comment.post.slug}`}
+                          className="mt-2 text-sm text-primary hover:underline inline-block"
+                        >
+                          Em: {comment.post.title}
+                        </Link>
                       </div>
-                      <p className="mt-2 text-foreground line-clamp-2">{comment.content}</p>
-                      <Link 
-                        to={`/posts/${comment.postId}`}
-                        className="mt-2 text-sm text-primary hover:underline inline-block"
-                      >
-                        Em: {comment.postTitle}
-                      </Link>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">{comment.votes} votos</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link to={`/posts/${comment.post.slug}`}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Ver no Post
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              setSelectedComment(comment);
+                              setDialogType('delete');
+                            }}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Remover
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">{comment.votes} votos</span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link to={`/posts/${comment.postId}`}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Ver no Post
-                          </Link>
-                        </DropdownMenuItem>
-                        {comment.status !== 'approved' && (
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              setSelectedComment(comment);
-                              setDialogType('approve');
-                            }}
-                            className="text-success"
-                          >
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Aprovar
-                          </DropdownMenuItem>
-                        )}
-                        {comment.status !== 'flagged' && (
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              setSelectedComment(comment);
-                              setDialogType('reject');
-                            }}
-                            className="text-warning"
-                          >
-                            <XCircle className="mr-2 h-4 w-4" />
-                            Rejeitar
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => {
-                            setSelectedComment(comment);
-                            setDialogType('delete');
-                          }}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Remover
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">Nenhum comentário encontrado</p>
+          )}
         </CardContent>
       </Card>
 
@@ -249,40 +234,13 @@ export default function AdminComments() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogType(null)}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleDeleteComment}>Remover</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Approve Dialog */}
-      <Dialog open={dialogType === 'approve'} onOpenChange={() => setDialogType(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Aprovar Comentário</DialogTitle>
-            <DialogDescription>
-              O comentário será aprovado e visível para todos os usuários.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogType(null)}>Cancelar</Button>
-            <Button onClick={handleApproveComment}>Aprovar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject Dialog */}
-      <Dialog open={dialogType === 'reject'} onOpenChange={() => setDialogType(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rejeitar Comentário</DialogTitle>
-            <DialogDescription>
-              O comentário será rejeitado e não será mais visível.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogType(null)}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleRejectComment}>Rejeitar</Button>
+            <Button variant="outline" onClick={() => setDialogType(null)} disabled={isSubmitting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteComment} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Remover
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

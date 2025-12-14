@@ -116,4 +116,38 @@ export const adminService = {
   async deleteUser(userId: string): Promise<void> {
     await api.delete(`/admin/users/${userId}`);
   },
+
+  // Posts Management
+  async getAllPosts(page: number = 1, limit: number = 50): Promise<any> {
+    const response = await api.get(`/admin/posts?page=${page}&limit=${limit}`);
+    return {
+      data: response.data.data,
+      meta: response.data.meta,
+    };
+  },
+
+  async deletePost(postId: string): Promise<void> {
+    await api.delete(`/admin/posts/${postId}`);
+  },
+
+  async hidePost(postId: string, reason: string): Promise<void> {
+    await api.post(`/admin/posts/${postId}/hide`, { reason });
+  },
+
+  async unhidePost(postId: string): Promise<void> {
+    await api.post(`/admin/posts/${postId}/unhide`);
+  },
+
+  // Comments Management
+  async getAllComments(page: number = 1, limit: number = 50): Promise<any> {
+    const response = await api.get(`/admin/comments?page=${page}&limit=${limit}`);
+    return {
+      data: response.data.data,
+      meta: response.data.meta,
+    };
+  },
+
+  async deleteComment(commentId: string): Promise<void> {
+    await api.delete(`/admin/comments/${commentId}`);
+  },
 };
