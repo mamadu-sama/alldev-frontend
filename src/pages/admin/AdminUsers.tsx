@@ -1,14 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Search, 
   MoreHorizontal, 
   Ban, 
   CheckCircle, 
   Trash2, 
-  Edit,
-  Mail,
   Shield,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -37,62 +36,186 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { mockUsers } from '@/lib/mockData';
-import { toast } from 'sonner';
-
-interface UserWithStatus {
-  id: string;
-  username: string;
-  email: string;
-  avatarUrl?: string;
-  level: string;
-  reputation: number;
-  status: 'active' | 'banned' | 'pending';
-  role: 'user' | 'moderator' | 'admin';
-  postsCount: number;
-  commentsCount: number;
-  createdAt: string;
-}
-
-const usersWithStatus: UserWithStatus[] = mockUsers.map((user, index) => ({
-  ...user,
-  status: index === 2 ? 'banned' : index === 4 ? 'pending' : 'active',
-  role: index === 0 ? 'admin' : index === 1 ? 'moderator' : 'user',
-  postsCount: Math.floor(Math.random() * 50),
-  commentsCount: Math.floor(Math.random() * 200),
-}));
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { adminService, type AdminUser } from '@/services/admin.service';
+import { useToast } from '@/hooks/use-toast';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export default function AdminUsers() {
+  const { toast } = useToast();
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [selectedUser, setSelectedUser] = useState<UserWithStatus | null>(null);
-  const [dialogType, setDialogType] = useState<'ban' | 'delete' | 'role' | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [dialogType, setDialogType] = useState<'ban' | 'unban' | 'delete' | 'role' | null>(null);
+  const [banReason, setBanReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredUsers = usersWithStatus.filter((user) => {
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      setIsLoading(true);
+      const response = await adminService.getAllUsers(1, 100);
+      setUsers(response.data);
+    } catch (error) {
+      toast({
+        title: 'Erro ao carregar usuários',
+        description: 'Não foi possível carregar a lista de usuários.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredUsers = users.filter((user) => {
     const matchesSearch = user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && user.isActive) ||
+      (statusFilter === 'banned' && !user.isActive);
+    const matchesRole = roleFilter === 'all' || 
+      user.roles.some(r => r.role.toLowerCase() === roleFilter.toLowerCase());
     return matchesSearch && matchesStatus && matchesRole;
   });
 
-  const handleBanUser = () => {
-    toast.success(`Usuário ${selectedUser?.username} foi ${selectedUser?.status === 'banned' ? 'desbanido' : 'banido'}`);
-    setDialogType(null);
-    setSelectedUser(null);
+  const handleBanUser = async () => {
+    if (!selectedUser || !banReason.trim()) {
+      toast({
+        title: 'Motivo obrigatório',
+        description: 'Por favor, informe o motivo do banimento.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await adminService.banUser(selectedUser.id, banReason);
+      toast({
+        title: 'Usuário banido!',
+        description: `${selectedUser.username} foi banido com sucesso.`,
+      });
+      await loadUsers();
+      setDialogType(null);
+      setSelectedUser(null);
+      setBanReason('');
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível banir o usuário.';
+      toast({
+        title: 'Erro ao banir usuário',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDeleteUser = () => {
-    toast.success(`Usuário ${selectedUser?.username} foi removido`);
-    setDialogType(null);
-    setSelectedUser(null);
+  const handleUnbanUser = async () => {
+    if (!selectedUser) return;
+
+    setIsSubmitting(true);
+    try {
+      await adminService.unbanUser(selectedUser.id);
+      toast({
+        title: 'Usuário desbanido!',
+        description: `${selectedUser.username} foi desbanido com sucesso.`,
+      });
+      await loadUsers();
+      setDialogType(null);
+      setSelectedUser(null);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível desbanir o usuário.';
+      toast({
+        title: 'Erro ao desbanir usuário',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleChangeRole = (newRole: string) => {
-    toast.success(`Role de ${selectedUser?.username} alterada para ${newRole}`);
-    setDialogType(null);
-    setSelectedUser(null);
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+
+    setIsSubmitting(true);
+    try {
+      await adminService.deleteUser(selectedUser.id);
+      toast({
+        title: 'Usuário removido!',
+        description: `${selectedUser.username} foi removido com sucesso.`,
+      });
+      await loadUsers();
+      setDialogType(null);
+      setSelectedUser(null);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível remover o usuário.';
+      toast({
+        title: 'Erro ao remover usuário',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleChangeRole = async (newRoles: string[]) => {
+    if (!selectedUser) return;
+
+    setIsSubmitting(true);
+    try {
+      await adminService.updateUserRole(selectedUser.id, newRoles);
+      toast({
+        title: 'Role alterada!',
+        description: `Role de ${selectedUser.username} foi alterada com sucesso.`,
+      });
+      await loadUsers();
+      setDialogType(null);
+      setSelectedUser(null);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível alterar a role.';
+      toast({
+        title: 'Erro ao alterar role',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getUserRoleLabel = (roles: Array<{ role: string }>) => {
+    if (roles.some(r => r.role === 'ADMIN')) return 'Admin';
+    if (roles.some(r => r.role === 'MODERATOR')) return 'Moderador';
+    return 'Usuário';
+  };
+
+  const getUserRoleVariant = (roles: Array<{ role: string }>): "default" | "success" | "secondary" => {
+    if (roles.some(r => r.role === 'ADMIN')) return 'default';
+    if (roles.some(r => r.role === 'MODERATOR')) return 'success';
+    return 'secondary';
   };
 
   return (
@@ -103,10 +226,6 @@ export default function AdminUsers() {
           <h1 className="text-3xl font-bold text-foreground">Usuários</h1>
           <p className="text-muted-foreground">Gerencie os usuários da plataforma</p>
         </div>
-        <Button>
-          <Mail className="mr-2 h-4 w-4" />
-          Convidar Usuário
-        </Button>
       </div>
 
       {/* Filters */}
@@ -131,7 +250,6 @@ export default function AdminUsers() {
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="active">Ativos</SelectItem>
                 <SelectItem value="banned">Banidos</SelectItem>
-                <SelectItem value="pending">Pendentes</SelectItem>
               </SelectContent>
             </Select>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
@@ -156,138 +274,172 @@ export default function AdminUsers() {
           <CardTitle>Lista de Usuários ({filteredUsers.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="pb-3 font-medium text-muted-foreground">Usuário</th>
-                  <th className="pb-3 font-medium text-muted-foreground">Role</th>
-                  <th className="pb-3 font-medium text-muted-foreground">Status</th>
-                  <th className="pb-3 font-medium text-muted-foreground">Reputação</th>
-                  <th className="pb-3 font-medium text-muted-foreground">Posts</th>
-                  <th className="pb-3 font-medium text-muted-foreground">Comentários</th>
-                  <th className="pb-3 font-medium text-muted-foreground">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="group">
-                    <td className="py-4">
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={user.avatarUrl} />
-                          <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium text-foreground">{user.username}</p>
-                          <p className="text-sm text-muted-foreground">{user.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4">
-                      <Badge variant={
-                        user.role === 'admin' ? 'default' : 
-                        user.role === 'moderator' ? 'success' : 'secondary'
-                      }>
-                        {user.role === 'admin' ? 'Admin' : 
-                         user.role === 'moderator' ? 'Moderador' : 'Usuário'}
-                      </Badge>
-                    </td>
-                    <td className="py-4">
-                      <Badge variant={
-                        user.status === 'active' ? 'success' : 
-                        user.status === 'banned' ? 'destructive' : 'warning'
-                      }>
-                        {user.status === 'active' ? 'Ativo' : 
-                         user.status === 'banned' ? 'Banido' : 'Pendente'}
-                      </Badge>
-                    </td>
-                    <td className="py-4">
-                      <span className="font-medium text-primary">{user.reputation}</span>
-                    </td>
-                    <td className="py-4 text-muted-foreground">{user.postsCount}</td>
-                    <td className="py-4 text-muted-foreground">{user.commentsCount}</td>
-                    <td className="py-4">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedUser(user);
-                            setDialogType('role');
-                          }}>
-                            <Shield className="mr-2 h-4 w-4" />
-                            Alterar Role
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setDialogType('ban');
-                            }}
-                            className={user.status === 'banned' ? 'text-success' : 'text-warning'}
-                          >
-                            {user.status === 'banned' ? (
-                              <>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Desbanir
-                              </>
-                            ) : (
-                              <>
-                                <Ban className="mr-2 h-4 w-4" />
-                                Banir
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setDialogType('delete');
-                            }}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Remover
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredUsers.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border text-left">
+                    <th className="pb-3 font-medium text-muted-foreground">Usuário</th>
+                    <th className="pb-3 font-medium text-muted-foreground">Role</th>
+                    <th className="pb-3 font-medium text-muted-foreground">Status</th>
+                    <th className="pb-3 font-medium text-muted-foreground">Reputação</th>
+                    <th className="pb-3 font-medium text-muted-foreground">Posts</th>
+                    <th className="pb-3 font-medium text-muted-foreground">Comentários</th>
+                    <th className="pb-3 font-medium text-muted-foreground">Ações</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredUsers.map((user) => (
+                    <tr key={user.id} className="group">
+                      <td className="py-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarImage src={user.avatarUrl || undefined} />
+                            <AvatarFallback>{user.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium text-foreground">{user.username}</p>
+                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4">
+                        <Badge variant={getUserRoleVariant(user.roles)}>
+                          {getUserRoleLabel(user.roles)}
+                        </Badge>
+                      </td>
+                      <td className="py-4">
+                        <Badge variant={user.isActive ? 'success' : 'destructive'}>
+                          {user.isActive ? 'Ativo' : 'Banido'}
+                        </Badge>
+                      </td>
+                      <td className="py-4">
+                        <span className="font-medium text-primary">{user.reputation}</span>
+                      </td>
+                      <td className="py-4 text-muted-foreground">{user._count.posts}</td>
+                      <td className="py-4 text-muted-foreground">{user._count.comments}</td>
+                      <td className="py-4">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedUser(user);
+                              setDialogType('role');
+                            }}>
+                              <Shield className="mr-2 h-4 w-4" />
+                              Alterar Role
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setDialogType(user.isActive ? 'ban' : 'unban');
+                              }}
+                              className={user.isActive ? 'text-warning' : 'text-success'}
+                            >
+                              {user.isActive ? (
+                                <>
+                                  <Ban className="mr-2 h-4 w-4" />
+                                  Banir
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                  Desbanir
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setDialogType('delete');
+                              }}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Remover
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">Nenhum usuário encontrado</p>
+          )}
         </CardContent>
       </Card>
 
       {/* Ban Dialog */}
-      <Dialog open={dialogType === 'ban'} onOpenChange={() => setDialogType(null)}>
+      <Dialog open={dialogType === 'ban'} onOpenChange={() => {
+        setDialogType(null);
+        setBanReason('');
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {selectedUser?.status === 'banned' ? 'Desbanir' : 'Banir'} Usuário
-            </DialogTitle>
+            <DialogTitle>Banir Usuário</DialogTitle>
             <DialogDescription>
-              {selectedUser?.status === 'banned' 
-                ? `Tem certeza que deseja desbanir ${selectedUser?.username}? O usuário poderá acessar a plataforma novamente.`
-                : `Tem certeza que deseja banir ${selectedUser?.username}? O usuário não poderá mais acessar a plataforma.`
-              }
+              Tem certeza que deseja banir {selectedUser?.username}? O usuário não poderá mais acessar a plataforma.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="banReason">Motivo do banimento *</Label>
+              <Textarea
+                id="banReason"
+                placeholder="Descreva o motivo do banimento..."
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setDialogType(null);
+              setBanReason('');
+            }} disabled={isSubmitting}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleBanUser}
+              disabled={isSubmitting || !banReason.trim()}
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Banir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unban Dialog */}
+      <Dialog open={dialogType === 'unban'} onOpenChange={() => setDialogType(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Desbanir Usuário</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja desbanir {selectedUser?.username}? O usuário poderá acessar a plataforma novamente.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogType(null)}>Cancelar</Button>
-            <Button 
-              variant={selectedUser?.status === 'banned' ? 'default' : 'destructive'}
-              onClick={handleBanUser}
-            >
-              {selectedUser?.status === 'banned' ? 'Desbanir' : 'Banir'}
+            <Button variant="outline" onClick={() => setDialogType(null)} disabled={isSubmitting}>
+              Cancelar
+            </Button>
+            <Button onClick={handleUnbanUser} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Desbanir
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -299,12 +451,17 @@ export default function AdminUsers() {
           <DialogHeader>
             <DialogTitle>Remover Usuário</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja remover {selectedUser?.username}? Esta ação não pode ser desfeita.
+              Tem certeza que deseja remover {selectedUser?.username}? Esta ação não pode ser desfeita. Todos os posts e comentários do usuário serão removidos.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogType(null)}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleDeleteUser}>Remover</Button>
+            <Button variant="outline" onClick={() => setDialogType(null)} disabled={isSubmitting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteUser} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Remover
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -320,25 +477,28 @@ export default function AdminUsers() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <Button 
-              variant={selectedUser?.role === 'admin' ? 'default' : 'outline'}
-              onClick={() => handleChangeRole('admin')}
+              variant={selectedUser?.roles.some(r => r.role === 'ADMIN') ? 'default' : 'outline'}
+              onClick={() => handleChangeRole(['ADMIN', 'USER'])}
               className="justify-start"
+              disabled={isSubmitting}
             >
               <Shield className="mr-2 h-4 w-4" />
               Admin - Acesso total
             </Button>
             <Button 
-              variant={selectedUser?.role === 'moderator' ? 'default' : 'outline'}
-              onClick={() => handleChangeRole('moderator')}
+              variant={selectedUser?.roles.some(r => r.role === 'MODERATOR') ? 'default' : 'outline'}
+              onClick={() => handleChangeRole(['MODERATOR', 'USER'])}
               className="justify-start"
+              disabled={isSubmitting}
             >
               <Shield className="mr-2 h-4 w-4" />
               Moderador - Moderar conteúdo
             </Button>
             <Button 
-              variant={selectedUser?.role === 'user' ? 'default' : 'outline'}
-              onClick={() => handleChangeRole('user')}
+              variant={selectedUser?.roles.some(r => r.role === 'USER') && !selectedUser?.roles.some(r => r.role === 'ADMIN' || r.role === 'MODERATOR') ? 'default' : 'outline'}
+              onClick={() => handleChangeRole(['USER'])}
               className="justify-start"
+              disabled={isSubmitting}
             >
               <Shield className="mr-2 h-4 w-4" />
               Usuário - Acesso padrão

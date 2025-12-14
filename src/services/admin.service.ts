@@ -48,6 +48,34 @@ export interface RecentUser {
   createdAt: string;
 }
 
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  avatarUrl: string | null;
+  bio: string | null;
+  reputation: number;
+  level: string;
+  roles: Array<{ role: string }>;
+  isActive: boolean;
+  isVerified: boolean;
+  createdAt: string;
+  _count: {
+    posts: number;
+    comments: number;
+  };
+}
+
+export interface PaginatedUsers {
+  data: AdminUser[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    hasMore: boolean;
+  };
+}
+
 export const adminService = {
   async getStatistics(): Promise<AdminStatistics> {
     const response = await api.get("/admin/statistics");
@@ -62,5 +90,30 @@ export const adminService = {
   async getRecentUsers(limit: number = 10): Promise<RecentUser[]> {
     const response = await api.get(`/admin/recent-users?limit=${limit}`);
     return response.data.data;
+  },
+
+  // User Management
+  async getAllUsers(page: number = 1, limit: number = 50): Promise<PaginatedUsers> {
+    const response = await api.get(`/admin/users?page=${page}&limit=${limit}`);
+    return {
+      data: response.data.data,
+      meta: response.data.meta,
+    };
+  },
+
+  async updateUserRole(userId: string, roles: string[]): Promise<void> {
+    await api.patch(`/admin/users/${userId}/role`, { roles });
+  },
+
+  async banUser(userId: string, reason: string, duration?: number): Promise<void> {
+    await api.post(`/admin/users/${userId}/ban`, { reason, duration });
+  },
+
+  async unbanUser(userId: string): Promise<void> {
+    await api.post(`/admin/users/${userId}/unban`);
+  },
+
+  async deleteUser(userId: string): Promise<void> {
+    await api.delete(`/admin/users/${userId}`);
   },
 };
