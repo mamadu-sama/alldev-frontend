@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, MessageSquare, HelpCircle, Bug, Lightbulb, Shield, Send, MapPin, Clock, Github, Twitter, Linkedin } from 'lucide-react';
+import { Mail, MessageSquare, HelpCircle, Bug, Lightbulb, Shield, Send, MapPin, Clock, Github, Twitter, Linkedin, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { contactService } from '@/services/contact.service';
+import type { ContactData } from '@/services/contact.service';
 
 const contactReasons = [
   { value: 'general', label: 'Dúvida Geral', icon: HelpCircle },
@@ -58,24 +60,56 @@ export default function Contact() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validação básica
+    if (!formData.name || !formData.email || !formData.reason || !formData.subject || !formData.message) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Por favor, preencha todos os campos obrigatórios.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      await contactService.sendMessage({
+        name: formData.name,
+        email: formData.email,
+        reason: formData.reason as ContactData['reason'],
+        subject: formData.subject,
+        message: formData.message,
+        website: '', // Honeypot field (deve estar vazio)
+      });
 
-    toast({
-      title: 'Mensagem enviada!',
-      description: 'Recebemos sua mensagem e responderemos em breve.',
-    });
+      toast({
+        title: 'Mensagem enviada!',
+        description: 'Recebemos sua mensagem e responderemos em breve.',
+      });
 
-    setFormData({
-      name: '',
-      email: '',
-      reason: '',
-      subject: '',
-      message: ''
-    });
-    setIsSubmitting(false);
+      // Limpar formulário
+      setFormData({
+        name: '',
+        email: '',
+        reason: '',
+        subject: '',
+        message: ''
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível enviar a mensagem.';
+      
+      toast({
+        title: 'Erro ao enviar mensagem',
+        description: errorMessage || 'Ocorreu um erro. Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -175,9 +209,12 @@ export default function Contact() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                <Button type="submit" variant="gradient" className="w-full" disabled={isSubmitting}>
                   {isSubmitting ? (
-                    'Enviando...'
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Enviando...
+                    </>
                   ) : (
                     <>
                       <Send className="h-4 w-4 mr-2" />
