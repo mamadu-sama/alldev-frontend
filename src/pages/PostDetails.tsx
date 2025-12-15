@@ -4,9 +4,9 @@ import { ChevronUp, ChevronDown, Eye, Pencil, Trash2, ArrowLeft, MessageSquare, 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
+import { MarkdownEditor } from '@/components/common/MarkdownEditor';
 import {
   Dialog,
   DialogContent,
@@ -482,14 +482,13 @@ export default function PostDetails() {
                 Cancelar
               </Button>
             </div>
-            <Textarea
-              placeholder="Escreva sua resposta em Markdown..."
+            <MarkdownEditor
               value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
-              className="min-h-32 mb-3"
-              autoFocus
+              onChange={setReplyContent}
+              placeholder="Escreva sua resposta em Markdown..."
+              minHeight="min-h-32"
             />
-            <div className="flex justify-end">
+            <div className="flex justify-end mt-3">
               <Button 
                 variant="gradient" 
                 onClick={handleSubmitReply}
@@ -505,13 +504,13 @@ export default function PostDetails() {
         {!replyingTo && isAuthenticated ? (
           <Card className="p-4">
             <h3 className="font-medium mb-3">Sua Resposta</h3>
-            <Textarea
-              placeholder="Escreva sua resposta em Markdown..."
+            <MarkdownEditor
               value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              className="min-h-32 mb-3"
+              onChange={setNewComment}
+              placeholder="Escreva sua resposta em Markdown..."
+              minHeight="min-h-32"
             />
-            <div className="flex justify-end">
+            <div className="flex justify-end mt-3">
               <Button 
                 variant="gradient" 
                 onClick={handleSubmitComment}

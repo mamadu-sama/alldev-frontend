@@ -139,6 +139,23 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
             </td>
           );
         },
+        img({ src, alt }) {
+          return (
+            <div className="my-4">
+              <img
+                src={src}
+                alt={alt || 'Image'}
+                className="max-w-full h-auto rounded-lg border border-border shadow-sm"
+                loading="lazy"
+              />
+              {alt && (
+                <p className="text-sm text-muted-foreground text-center mt-2 italic">
+                  {alt}
+                </p>
+              )}
+            </div>
+          );
+        },
       }}
     >
       {content}

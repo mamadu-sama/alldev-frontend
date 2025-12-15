@@ -7,11 +7,11 @@ import { ArrowLeft, Eye, Edit, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MarkdownContent } from "@/components/common/MarkdownContent";
+import { MarkdownEditor } from "@/components/common/MarkdownEditor";
 import { useAuthStore } from "@/stores/authStore";
 import { useToast } from "@/hooks/use-toast";
 import { postService } from "@/services/post.service";
@@ -189,7 +189,9 @@ export default function CreatePost() {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="write" className="mt-0">
-              <Textarea
+              <MarkdownEditor
+                value={watch("content")}
+                onChange={(value) => setValue("content", value, { shouldValidate: true })}
                 placeholder="Descreva sua dúvida em detalhes usando Markdown...
 
 # Contexto
@@ -204,8 +206,7 @@ Descreva o que já tentou fazer
 
 ## Resultado esperado
 O que você espera que aconteça"
-                {...register("content")}
-                className="min-h-80 font-mono text-sm"
+                minHeight="min-h-80"
               />
             </TabsContent>
             <TabsContent value="preview" className="mt-0">
