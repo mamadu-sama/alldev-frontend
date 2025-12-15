@@ -39,10 +39,13 @@ export interface Comment {
   content: string;
   postId: string;
   author: User;
+  parentId?: string | null;
   votes: number;
   userVote?: 'up' | 'down' | null;
   isAccepted: boolean;
+  replies?: Comment[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Notification {

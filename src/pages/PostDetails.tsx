@@ -47,6 +47,8 @@ export default function PostDetails() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'comment'; id: string; title?: string; preview?: string } | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
+  const [replyContent, setReplyContent] = useState('');
 
   // Load post from API
   useEffect(() => {
@@ -240,6 +242,50 @@ export default function PostDetails() {
     }
   };
 
+  const handleReplyToComment = (commentId: string, authorUsername: string) => {
+    setReplyingTo({ id: commentId, username: authorUsername });
+    setReplyContent(`@${authorUsername} `);
+  };
+
+  const handleSubmitReply = async () => {
+    if (!replyContent.trim() || !replyingTo) return;
+    if (!isAuthenticated || !user || !post) {
+      toast({ title: 'Faça login para responder', variant: 'destructive' });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const createdReply = await commentService.createComment(post.id, {
+        content: replyContent,
+        parentId: replyingTo.id,
+      });
+
+      // Recarregar comentários para obter a estrutura atualizada
+      const commentsResponse = await commentService.getComments(post.id);
+      setComments(commentsResponse.data);
+      
+      setReplyContent('');
+      setReplyingTo(null);
+      
+      toast({ title: 'Resposta adicionada!' });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : 'Não foi possível adicionar a resposta.';
+      
+      toast({
+        title: 'Erro ao adicionar resposta',
+        description: errorMessage || 'Não foi possível adicionar a resposta.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleEditPost = () => {
     if (!post) return;
     navigate(`/posts/${post.slug}/edit`);
@@ -420,8 +466,43 @@ export default function PostDetails() {
           </Select>
         </div>
 
+        {/* Reply form (when replying to a comment) */}
+        {replyingTo && isAuthenticated && (
+          <Card className="p-4 border-primary/50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-medium">Respondendo a @{replyingTo.username}</h3>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => {
+                  setReplyingTo(null);
+                  setReplyContent('');
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+            <Textarea
+              placeholder="Escreva sua resposta em Markdown..."
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              className="min-h-32 mb-3"
+              autoFocus
+            />
+            <div className="flex justify-end">
+              <Button 
+                variant="gradient" 
+                onClick={handleSubmitReply}
+                disabled={isSubmitting || !replyContent.trim()}
+              >
+                {isSubmitting ? 'Enviando...' : 'Enviar Resposta'}
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {/* Comment form */}
-        {isAuthenticated ? (
+        {!replyingTo && isAuthenticated ? (
           <Card className="p-4">
             <h3 className="font-medium mb-3">Sua Resposta</h3>
             <Textarea
@@ -440,14 +521,14 @@ export default function PostDetails() {
               </Button>
             </div>
           </Card>
-        ) : (
+        ) : !isAuthenticated ? (
           <Card className="p-6 text-center">
             <p className="text-muted-foreground mb-4">Faça login para responder esta pergunta</p>
             <Button variant="gradient" asChild>
               <Link to="/login">Entrar</Link>
             </Button>
           </Card>
-        )}
+        ) : null}
 
         {/* Comments list */}
         <div className="space-y-4">
@@ -458,9 +539,12 @@ export default function PostDetails() {
               isPostAuthor={isAuthor}
               isCommentAuthor={user?.id === comment.author.id}
               canAccept={!hasAcceptedAnswer}
+              isAuthenticated={isAuthenticated}
+              depth={0}
               onVote={handleCommentVote}
               onAccept={handleAcceptAnswer}
               onReport={isAuthenticated && user?.id !== comment.author.id ? handleReportComment : undefined}
+              onReply={handleReplyToComment}
             />
           ))}
         </div>
