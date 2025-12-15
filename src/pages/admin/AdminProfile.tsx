@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   Loader2,
   User,
@@ -20,42 +20,42 @@ import {
   Twitter,
   Globe,
   ExternalLink,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
-import { useAuthStore } from '@/stores/authStore';
-import { userService } from '@/services/user.service';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+} from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { useAuthStore } from "@/stores/authStore";
+import { userService } from "@/services/user.service";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const adminProfileSchema = z.object({
   username: z
     .string()
-    .min(3, 'Username deve ter no mínimo 3 caracteres')
-    .max(30, 'Username deve ter no máximo 30 caracteres')
+    .min(3, "Username deve ter no mínimo 3 caracteres")
+    .max(30, "Username deve ter no máximo 30 caracteres")
     .regex(
       /^[a-zA-Z0-9_]+$/,
-      'Username pode conter apenas letras, números e underscore'
+      "Username pode conter apenas letras, números e underscore"
     )
     .optional(),
-  bio: z.string().max(500, 'Bio deve ter no máximo 500 caracteres').optional(),
+  bio: z.string().max(500, "Bio deve ter no máximo 500 caracteres").optional(),
   skills: z.string().optional(),
-  github: z.string().url('URL inválida').optional().or(z.literal('')),
-  linkedin: z.string().url('URL inválida').optional().or(z.literal('')),
-  twitter: z.string().url('URL inválida').optional().or(z.literal('')),
-  portfolio: z.string().url('URL inválida').optional().or(z.literal('')),
+  github: z.string().url("URL inválida").optional().or(z.literal("")),
+  linkedin: z.string().url("URL inválida").optional().or(z.literal("")),
+  twitter: z.string().url("URL inválida").optional().or(z.literal("")),
+  portfolio: z.string().url("URL inválida").optional().or(z.literal("")),
 });
 
 type AdminProfileFormData = z.infer<typeof adminProfileSchema>;
@@ -65,7 +65,10 @@ export default function AdminProfile() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { user, updateUser, isAuthenticated } = useAuthStore();
 
@@ -77,13 +80,13 @@ export default function AdminProfile() {
   } = useForm<AdminProfileFormData>({
     resolver: zodResolver(adminProfileSchema),
     defaultValues: {
-      username: '',
-      bio: '',
-      skills: '',
-      github: '',
-      linkedin: '',
-      twitter: '',
-      portfolio: '',
+      username: "",
+      bio: "",
+      skills: "",
+      github: "",
+      linkedin: "",
+      twitter: "",
+      portfolio: "",
     },
   });
 
@@ -91,7 +94,7 @@ export default function AdminProfile() {
   useEffect(() => {
     const loadProfile = async () => {
       if (!isAuthenticated) {
-        navigate('/login');
+        navigate("/login");
         return;
       }
 
@@ -99,18 +102,18 @@ export default function AdminProfile() {
         setIsLoadingProfile(true);
         const profile = await userService.getProfile();
 
-        setValue('username', profile.username || '');
-        setValue('bio', profile.bio || '');
-        setValue('skills', profile.skills?.join(', ') || '');
-        setValue('github', profile.socialLinks?.github || '');
-        setValue('linkedin', profile.socialLinks?.linkedin || '');
-        setValue('twitter', profile.socialLinks?.twitter || '');
-        setValue('portfolio', profile.socialLinks?.portfolio || '');
+        setValue("username", profile.username || "");
+        setValue("bio", profile.bio || "");
+        setValue("skills", profile.skills?.join(", ") || "");
+        setValue("github", profile.socialLinks?.github || "");
+        setValue("linkedin", profile.socialLinks?.linkedin || "");
+        setValue("twitter", profile.socialLinks?.twitter || "");
+        setValue("portfolio", profile.socialLinks?.portfolio || "");
 
         // Update auth store
         updateUser(profile);
       } catch (error) {
-        toast.error('Erro ao carregar perfil');
+        toast.error("Erro ao carregar perfil");
       } finally {
         setIsLoadingProfile(false);
       }
@@ -125,13 +128,13 @@ export default function AdminProfile() {
 
     // Validate file size (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
-      toast.error('A imagem deve ter no máximo 2MB');
+      toast.error("A imagem deve ter no máximo 2MB");
       return;
     }
 
     // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Apenas imagens são permitidas');
+    if (!file.type.startsWith("image/")) {
+      toast.error("Apenas imagens são permitidas");
       return;
     }
 
@@ -147,7 +150,39 @@ export default function AdminProfile() {
     setAvatarFile(null);
     setAvatarPreview(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleCoverChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("A imagem de capa deve ter no máximo 5MB");
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Apenas imagens são permitidas");
+      return;
+    }
+
+    setCoverFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCoverPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveCover = () => {
+    setCoverFile(null);
+    setCoverPreview(null);
+    if (coverInputRef.current) {
+      coverInputRef.current.value = "";
     }
   };
 
@@ -155,42 +190,59 @@ export default function AdminProfile() {
     try {
       setIsLoading(true);
 
-      // Prepare form data
-      const formData = new FormData();
-      if (data.username) formData.append('username', data.username);
-      if (data.bio) formData.append('bio', data.bio);
+      // Upload avatar if changed
+      if (avatarFile) {
+        await userService.uploadAvatar(avatarFile);
+        toast.success("Foto de perfil atualizada!");
+      }
+
+      // Upload cover image if changed
+      if (coverFile) {
+        await userService.uploadCoverImage(coverFile);
+        toast.success("Foto de capa atualizada!");
+      }
+
+      // Update profile data
+      const updateData: Record<string, unknown> = {};
+
+      if (data.username) updateData.username = data.username;
+      if (data.bio !== undefined) updateData.bio = data.bio;
       if (data.skills) {
-        const skillsArray = data.skills
-          .split(',')
+        updateData.skills = data.skills
+          .split(",")
           .map((s) => s.trim())
           .filter(Boolean);
-        formData.append('skills', JSON.stringify(skillsArray));
       }
-      
+
       // Social links
-      const socialLinks: any = {};
-      if (data.github) socialLinks.github = data.github;
-      if (data.linkedin) socialLinks.linkedin = data.linkedin;
-      if (data.twitter) socialLinks.twitter = data.twitter;
-      if (data.portfolio) socialLinks.portfolio = data.portfolio;
-      
-      if (Object.keys(socialLinks).length > 0) {
-        formData.append('socialLinks', JSON.stringify(socialLinks));
-      }
-      
-      if (avatarFile) {
-        formData.append('avatar', avatarFile);
+      if (data.github || data.linkedin || data.twitter || data.portfolio) {
+        updateData.socialLinks = {
+          github: data.github || "",
+          linkedin: data.linkedin || "",
+          twitter: data.twitter || "",
+          portfolio: data.portfolio || "",
+        };
       }
 
-      const updatedProfile = await userService.updateProfile(formData);
-      updateUser(updatedProfile);
+      // Only update if there are changes
+      if (Object.keys(updateData).length > 0) {
+        const updatedProfile = await userService.updateProfile(updateData);
+        updateUser(updatedProfile);
+      }
 
-      toast.success('Perfil atualizado com sucesso!');
+      toast.success("Perfil atualizado com sucesso!");
       handleRemoveAvatar();
-    } catch (error: any) {
-      toast.error(
-        error.response?.data?.error?.message || 'Erro ao atualizar perfil'
-      );
+      handleRemoveCover();
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error && "response" in error
+          ? (
+              error as {
+                response?: { data?: { error?: { message?: string } } };
+              }
+            ).response?.data?.error?.message
+          : undefined;
+      toast.error(errorMessage || "Erro ao atualizar perfil");
     } finally {
       setIsLoading(false);
     }
@@ -216,7 +268,7 @@ export default function AdminProfile() {
             Gerencie suas informações pessoais
           </p>
         </div>
-        <Button variant="outline" onClick={() => navigate('/admin')}>
+        <Button variant="outline" onClick={() => navigate("/admin")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Voltar ao Dashboard
         </Button>
@@ -278,11 +330,70 @@ export default function AdminProfile() {
               </p>
             </div>
 
+            {/* Cover Image */}
+            <div className="space-y-3 pt-4 border-t">
+              <Label className="text-sm font-medium">Foto de Capa</Label>
+              <div className="relative w-full h-40 rounded-lg overflow-hidden bg-gradient-to-r from-primary to-secondary">
+                {(coverPreview || user?.coverImageUrl) && (
+                  <img
+                    src={coverPreview || user?.coverImageUrl || undefined}
+                    alt="Cover"
+                    className="w-full h-full object-cover"
+                  />
+                )}
+                {coverPreview && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8 rounded-full"
+                    variant="destructive"
+                    onClick={handleRemoveCover}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => coverInputRef.current?.click()}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Alterar Capa
+                </Button>
+                {coverPreview && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRemoveCover}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleCoverChange}
+                className="hidden"
+              />
+              <p className="text-xs text-muted-foreground">
+                JPG, PNG ou WebP. Max 5MB. Recomendado: 1200x400px
+              </p>
+            </div>
+
             {/* User Stats */}
             <div className="space-y-2 pt-4 border-t">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Role:</span>
-                <Badge variant="destructive" className="flex items-center gap-1">
+                <Badge
+                  variant="destructive"
+                  className="flex items-center gap-1"
+                >
                   <Shield className="h-3 w-3" />
                   ADMIN
                 </Badge>
@@ -304,15 +415,17 @@ export default function AdminProfile() {
                 <span className="text-sm text-muted-foreground">Nível:</span>
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Award className="h-3 w-3" />
-                  {user?.level || 'NOVATO'}
+                  {user?.level || "NOVATO"}
                 </Badge>
               </div>
               {user?.createdAt && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Membro desde:</span>
+                  <span className="text-sm text-muted-foreground">
+                    Membro desde:
+                  </span>
                   <span className="text-sm font-medium flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {format(new Date(user.createdAt), 'MMM yyyy', {
+                    {format(new Date(user.createdAt), "MMM yyyy", {
                       locale: ptBR,
                     })}
                   </span>
@@ -323,7 +436,9 @@ export default function AdminProfile() {
             {/* Bio */}
             {user?.bio && (
               <div className="space-y-2 pt-4 border-t">
-                <h3 className="text-sm font-semibold text-foreground">Biografia</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Biografia
+                </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {user.bio}
                 </p>
@@ -333,7 +448,9 @@ export default function AdminProfile() {
             {/* Skills */}
             {user?.skills && user.skills.length > 0 && (
               <div className="space-y-2 pt-4 border-t">
-                <h3 className="text-sm font-semibold text-foreground">Habilidades</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Habilidades
+                </h3>
                 <div className="flex flex-wrap gap-1.5">
                   {user.skills.map((skill: string) => (
                     <Badge key={skill} variant="secondary" className="text-xs">
@@ -347,7 +464,9 @@ export default function AdminProfile() {
             {/* Social Links */}
             {user?.socialLinks && Object.keys(user.socialLinks).length > 0 && (
               <div className="space-y-2 pt-4 border-t">
-                <h3 className="text-sm font-semibold text-foreground">Links Sociais</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Links Sociais
+                </h3>
                 <div className="space-y-2">
                   {user.socialLinks.github && (
                     <a
@@ -418,7 +537,7 @@ export default function AdminProfile() {
                 <Label htmlFor="username">Username</Label>
                 <Input
                   id="username"
-                  {...register('username')}
+                  {...register("username")}
                   placeholder="seu_username"
                 />
                 {errors.username && (
@@ -433,12 +552,14 @@ export default function AdminProfile() {
                 <Label htmlFor="bio">Biografia</Label>
                 <Textarea
                   id="bio"
-                  {...register('bio')}
+                  {...register("bio")}
                   placeholder="Conte um pouco sobre você..."
                   rows={4}
                 />
                 {errors.bio && (
-                  <p className="text-sm text-destructive">{errors.bio.message}</p>
+                  <p className="text-sm text-destructive">
+                    {errors.bio.message}
+                  </p>
                 )}
               </div>
 
@@ -447,7 +568,7 @@ export default function AdminProfile() {
                 <Label htmlFor="skills">Habilidades</Label>
                 <Input
                   id="skills"
-                  {...register('skills')}
+                  {...register("skills")}
                   placeholder="JavaScript, TypeScript, React (separadas por vírgula)"
                 />
                 {errors.skills && (
@@ -462,8 +583,10 @@ export default function AdminProfile() {
 
               {/* Social Links */}
               <div className="space-y-4 pt-2">
-                <h3 className="text-sm font-semibold text-foreground">Links Sociais</h3>
-                
+                <h3 className="text-sm font-semibold text-foreground">
+                  Links Sociais
+                </h3>
+
                 {/* GitHub */}
                 <div className="space-y-2">
                   <Label htmlFor="github" className="flex items-center gap-2">
@@ -472,11 +595,13 @@ export default function AdminProfile() {
                   </Label>
                   <Input
                     id="github"
-                    {...register('github')}
+                    {...register("github")}
                     placeholder="https://github.com/username"
                   />
                   {errors.github && (
-                    <p className="text-sm text-destructive">{errors.github.message}</p>
+                    <p className="text-sm text-destructive">
+                      {errors.github.message}
+                    </p>
                   )}
                 </div>
 
@@ -488,11 +613,13 @@ export default function AdminProfile() {
                   </Label>
                   <Input
                     id="linkedin"
-                    {...register('linkedin')}
+                    {...register("linkedin")}
                     placeholder="https://linkedin.com/in/username"
                   />
                   {errors.linkedin && (
-                    <p className="text-sm text-destructive">{errors.linkedin.message}</p>
+                    <p className="text-sm text-destructive">
+                      {errors.linkedin.message}
+                    </p>
                   )}
                 </div>
 
@@ -504,27 +631,34 @@ export default function AdminProfile() {
                   </Label>
                   <Input
                     id="twitter"
-                    {...register('twitter')}
+                    {...register("twitter")}
                     placeholder="https://twitter.com/username"
                   />
                   {errors.twitter && (
-                    <p className="text-sm text-destructive">{errors.twitter.message}</p>
+                    <p className="text-sm text-destructive">
+                      {errors.twitter.message}
+                    </p>
                   )}
                 </div>
 
                 {/* Portfolio */}
                 <div className="space-y-2">
-                  <Label htmlFor="portfolio" className="flex items-center gap-2">
+                  <Label
+                    htmlFor="portfolio"
+                    className="flex items-center gap-2"
+                  >
                     <Globe className="h-4 w-4" />
                     Portfolio
                   </Label>
                   <Input
                     id="portfolio"
-                    {...register('portfolio')}
+                    {...register("portfolio")}
                     placeholder="https://seu-portfolio.com"
                   />
                   {errors.portfolio && (
-                    <p className="text-sm text-destructive">{errors.portfolio.message}</p>
+                    <p className="text-sm text-destructive">
+                      {errors.portfolio.message}
+                    </p>
                   )}
                 </div>
               </div>
@@ -551,7 +685,7 @@ export default function AdminProfile() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => navigate('/admin')}
+                  onClick={() => navigate("/admin")}
                 >
                   Cancelar
                 </Button>
@@ -563,4 +697,3 @@ export default function AdminProfile() {
     </div>
   );
 }
-

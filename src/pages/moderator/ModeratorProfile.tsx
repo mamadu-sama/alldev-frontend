@@ -64,7 +64,10 @@ export default function ModeratorProfile() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { user, updateUser, isAuthenticated } = useAuthStore();
 
@@ -150,46 +153,91 @@ export default function ModeratorProfile() {
     }
   };
 
+  const handleCoverChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('A imagem de capa deve ter no máximo 5MB');
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Apenas imagens são permitidas');
+      return;
+    }
+
+    setCoverFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCoverPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveCover = () => {
+    setCoverFile(null);
+    setCoverPreview(null);
+    if (coverInputRef.current) {
+      coverInputRef.current.value = '';
+    }
+  };
+
   const onSubmit = async (data: ModeratorProfileFormData) => {
     try {
       setIsLoading(true);
 
-      // Prepare form data
-      const formData = new FormData();
-      if (data.username) formData.append('username', data.username);
-      if (data.bio) formData.append('bio', data.bio);
+      // Upload avatar if changed
+      if (avatarFile) {
+        await userService.uploadAvatar(avatarFile);
+        toast.success('Foto de perfil atualizada!');
+      }
+
+      // Upload cover image if changed
+      if (coverFile) {
+        await userService.uploadCoverImage(coverFile);
+        toast.success('Foto de capa atualizada!');
+      }
+
+      // Update profile data
+      const updateData: Record<string, unknown> = {};
+      
+      if (data.username) updateData.username = data.username;
+      if (data.bio !== undefined) updateData.bio = data.bio;
       if (data.skills) {
-        const skillsArray = data.skills
+        updateData.skills = data.skills
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean);
-        formData.append('skills', JSON.stringify(skillsArray));
       }
       
       // Social links
-      const socialLinks: any = {};
-      if (data.github) socialLinks.github = data.github;
-      if (data.linkedin) socialLinks.linkedin = data.linkedin;
-      if (data.twitter) socialLinks.twitter = data.twitter;
-      if (data.portfolio) socialLinks.portfolio = data.portfolio;
-      
-      if (Object.keys(socialLinks).length > 0) {
-        formData.append('socialLinks', JSON.stringify(socialLinks));
-      }
-      
-      if (avatarFile) {
-        formData.append('avatar', avatarFile);
+      if (data.github || data.linkedin || data.twitter || data.portfolio) {
+        updateData.socialLinks = {
+          github: data.github || '',
+          linkedin: data.linkedin || '',
+          twitter: data.twitter || '',
+          portfolio: data.portfolio || '',
+        };
       }
 
-      const updatedProfile = await userService.updateProfile(formData);
-      updateUser(updatedProfile);
+      // Only update if there are changes
+      if (Object.keys(updateData).length > 0) {
+        const updatedProfile = await userService.updateProfile(updateData);
+        updateUser(updatedProfile);
+      }
 
       toast.success('Perfil atualizado com sucesso!');
       handleRemoveAvatar();
-    } catch (error: any) {
-      toast.error(
-        error.response?.data?.error?.message || 'Erro ao atualizar perfil'
-      );
+      handleRemoveCover();
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error && 'response' in error
+          ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
+          : undefined;
+      toast.error(errorMessage || 'Erro ao atualizar perfil');
     } finally {
       setIsLoading(false);
     }
@@ -274,6 +322,62 @@ export default function ModeratorProfile() {
               />
               <p className="text-xs text-muted-foreground mt-2 text-center">
                 JPG, PNG ou WebP. Max 2MB.
+              </p>
+            </div>
+
+            {/* Cover Image */}
+            <div className="space-y-3 pt-4 border-t">
+              <Label className="text-sm font-medium">Foto de Capa</Label>
+              <div className="relative w-full h-40 rounded-lg overflow-hidden bg-gradient-to-r from-primary to-secondary">
+                {(coverPreview || user?.coverImageUrl) && (
+                  <img 
+                    src={coverPreview || user?.coverImageUrl || undefined} 
+                    alt="Cover" 
+                    className="w-full h-full object-cover"
+                  />
+                )}
+                {coverPreview && (
+                  <Button 
+                    type="button"
+                    size="icon" 
+                    className="absolute top-2 right-2 h-8 w-8 rounded-full"
+                    variant="destructive"
+                    onClick={handleRemoveCover}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => coverInputRef.current?.click()}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Alterar Capa
+                </Button>
+                {coverPreview && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRemoveCover}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleCoverChange}
+                className="hidden"
+              />
+              <p className="text-xs text-muted-foreground">
+                JPG, PNG ou WebP. Max 5MB. Recomendado: 1200x400px
               </p>
             </div>
 

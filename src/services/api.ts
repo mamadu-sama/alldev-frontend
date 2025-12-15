@@ -45,6 +45,8 @@ api.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem('refreshToken');
+        
+        // Only try to refresh if user was authenticated
         if (refreshToken) {
           const response = await axios.post(
             `${import.meta.env.VITE_API_URL || 'http://localhost:3002/api'}/auth/refresh`,
@@ -64,16 +66,17 @@ api.interceptors.response.use(
           }
         }
       } catch (refreshError) {
-        // Refresh failed, logout user
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
+        // Refresh failed - only logout and redirect if user was authenticated
+        const wasAuthenticated = useAuthStore.getState().isAuthenticated;
+        if (wasAuthenticated) {
+          useAuthStore.getState().logout();
+          window.location.href = '/login';
+        }
       }
     }
 
-    if (error.response?.status === 401) {
-      useAuthStore.getState().logout();
-      window.location.href = '/login';
-    }
+    // Don't automatically redirect on 401 - let components handle it
+    // This allows unauthenticated users to browse public content
 
     return Promise.reject(error);
   }
