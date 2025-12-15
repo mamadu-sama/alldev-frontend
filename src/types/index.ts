@@ -3,6 +3,7 @@ export interface User {
   username: string;
   email: string;
   avatarUrl?: string;
+  coverImageUrl?: string;
   bio?: string;
   skills: string[];
   socialLinks?: {

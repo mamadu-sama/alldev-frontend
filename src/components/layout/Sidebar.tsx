@@ -1,9 +1,18 @@
-import { Link, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Home, Hash, Users, TrendingUp, HelpCircle, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import { tagService } from '@/services/tag.service';
+import { Link, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Home,
+  Hash,
+  Users,
+  TrendingUp,
+  HelpCircle,
+  Loader2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { tagService } from "@/services/tag.service";
+import { statsService } from "@/services/stats.service";
+import { formatNumber } from "@/lib/formatNumber";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -11,11 +20,11 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { icon: Home, label: 'Home', href: '/' },
-  { icon: Hash, label: 'Tags', href: '/tags' },
-  { icon: Users, label: 'Usuários', href: '/users' },
-  { icon: TrendingUp, label: 'Trending', href: '/?filter=votes' },
-  { icon: HelpCircle, label: 'Sem Resposta', href: '/?filter=unanswered' },
+  { icon: Home, label: "Home", href: "/" },
+  { icon: Hash, label: "Tags", href: "/tags" },
+  { icon: Users, label: "Usuários", href: "/users" },
+  { icon: TrendingUp, label: "Trending", href: "/?filter=votes" },
+  { icon: HelpCircle, label: "Sem Resposta", href: "/?filter=unanswered" },
 ];
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
@@ -23,9 +32,16 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Fetch popular tags from API
   const { data: tags, isLoading: isLoadingTags } = useQuery({
-    queryKey: ['tags', 'popular'],
-    queryFn: () => tagService.getTags('popular'),
+    queryKey: ["tags", "popular"],
+    queryFn: () => tagService.getTags("popular"),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  // Fetch community stats from API
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["stats", "community"],
+    queryFn: () => statsService.getCommunityStats(),
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
   });
 
   const topTags = tags?.slice(0, 5) || [];
@@ -42,27 +58,28 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          'fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] w-64 border-r border-border bg-sidebar transition-transform duration-300 lg:translate-x-0',
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+          "fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] w-64 border-r border-border bg-sidebar transition-transform duration-300 lg:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         <div className="flex h-full flex-col gap-6 overflow-y-auto p-4 scrollbar-thin">
           {/* Navigation */}
           <nav className="space-y-1">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.href || 
-                (item.href !== '/' && location.pathname.startsWith(item.href));
-              
+              const isActive =
+                location.pathname === item.href ||
+                (item.href !== "/" && location.pathname.startsWith(item.href));
+
               return (
                 <Link
                   key={item.href}
                   to={item.href}
                   onClick={onClose}
                   className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                     isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}
                 >
                   <item.icon className="h-5 w-5" />
@@ -111,24 +128,44 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Comunidade
             </h3>
-            <div className="grid grid-cols-2 gap-3 text-center">
-              <div>
-                <div className="text-2xl font-bold text-primary">5.2K</div>
-                <div className="text-xs text-muted-foreground">Posts</div>
+            {isLoadingStats ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
-              <div>
-                <div className="text-2xl font-bold text-secondary">1.8K</div>
-                <div className="text-xs text-muted-foreground">Usuários</div>
+            ) : stats ? (
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-primary">
+                    {formatNumber(stats.totalPosts)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Posts</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-secondary">
+                    {formatNumber(stats.totalUsers)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Usuários</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-success">
+                    {formatNumber(stats.resolvedPosts)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Resolvidos
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-warning">
+                    {formatNumber(stats.todayPosts)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Hoje</div>
+                </div>
               </div>
-              <div>
-                <div className="text-2xl font-bold text-success">3.1K</div>
-                <div className="text-xs text-muted-foreground">Resolvidos</div>
+            ) : (
+              <div className="text-center py-4 text-xs text-muted-foreground">
+                Estatísticas indisponíveis
               </div>
-              <div>
-                <div className="text-2xl font-bold text-warning">892</div>
-                <div className="text-xs text-muted-foreground">Hoje</div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </aside>

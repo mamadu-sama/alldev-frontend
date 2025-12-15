@@ -40,6 +40,22 @@ export const userService = {
     await api.delete("/users/me/avatar");
   },
 
+  async uploadCoverImage(file: File): Promise<{ coverImageUrl: string }> {
+    const formData = new FormData();
+    formData.append("cover", file);
+
+    const response = await api.post("/users/me/cover", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data.data;
+  },
+
+  async deleteCoverImage(): Promise<void> {
+    await api.delete("/users/me/cover");
+  },
+
   async getUserByUsername(username: string): Promise<User> {
     const response = await api.get(`/users/${username}`);
     return response.data.data;

@@ -110,8 +110,16 @@ export default function UserProfile() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Profile header */}
       <Card className="overflow-hidden">
-        {/* Cover gradient */}
-        <div className="h-32 bg-gradient-to-r from-primary to-secondary" />
+        {/* Cover image or gradient */}
+        <div className="relative h-48 bg-gradient-to-r from-primary to-secondary">
+          {user.coverImageUrl && (
+            <img 
+              src={user.coverImageUrl} 
+              alt={`${user.username} cover`}
+              className="w-full h-full object-cover"
+            />
+          )}
+        </div>
         
         <CardContent className="relative pt-0 pb-6">
           {/* Avatar */}

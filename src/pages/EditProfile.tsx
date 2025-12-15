@@ -37,7 +37,10 @@ export default function EditProfile() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, updateUser, isAuthenticated } = useAuthStore();
@@ -138,6 +141,48 @@ export default function EditProfile() {
     }
   };
 
+  const handleCoverChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Tipo de arquivo inválido',
+        description: 'Por favor, selecione uma imagem (JPG, PNG ou GIF)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file size (5MB for cover)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'Arquivo muito grande',
+        description: 'A imagem de capa deve ter no máximo 5MB',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCoverFile(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCoverPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeCover = () => {
+    setCoverPreview(null);
+    setCoverFile(null);
+    if (coverInputRef.current) {
+      coverInputRef.current.value = '';
+    }
+  };
+
   const onSubmit = async (data: EditProfileFormData) => {
     setIsLoading(true);
     
@@ -148,6 +193,15 @@ export default function EditProfile() {
         toast({
           title: 'Avatar atualizado!',
           description: 'Sua foto de perfil foi alterada.',
+        });
+      }
+
+      // Upload cover image if changed
+      if (coverFile) {
+        await userService.uploadCoverImage(coverFile);
+        toast({
+          title: 'Foto de capa atualizada!',
+          description: 'Sua foto de capa foi alterada.',
         });
       }
 
@@ -299,6 +353,76 @@ export default function EditProfile() {
                 <p className="text-xs text-success flex items-center gap-1">
                   <CheckCircle className="h-3 w-3" />
                   Nova foto selecionada
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Cover Image Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Foto de Capa</CardTitle>
+            <CardDescription>Personalize o topo do seu perfil</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="relative w-full h-40 rounded-lg overflow-hidden bg-gradient-to-r from-primary to-secondary">
+              {(coverPreview || user.coverImageUrl) && (
+                <img 
+                  src={coverPreview || user.coverImageUrl || undefined} 
+                  alt="Cover" 
+                  className="w-full h-full object-cover"
+                />
+              )}
+              {coverPreview && (
+                <Button 
+                  type="button"
+                  size="icon" 
+                  className="absolute top-2 right-2 h-8 w-8 rounded-full"
+                  variant="destructive"
+                  onClick={removeCover}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            <div className="space-y-3">
+              <input
+                type="file"
+                ref={coverInputRef}
+                onChange={handleCoverChange}
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+              />
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => coverInputRef.current?.click()}
+                  className="gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Alterar capa
+                </Button>
+                {coverPreview && (
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={removeCover}
+                  >
+                    Remover
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                JPG, PNG ou GIF. Máximo 5MB. Recomendado: 1200x400px
+              </p>
+              {coverPreview && (
+                <p className="text-xs text-success flex items-center gap-1">
+                  <CheckCircle className="h-3 w-3" />
+                  Nova capa selecionada
                 </p>
               )}
             </div>
