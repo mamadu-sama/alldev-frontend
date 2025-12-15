@@ -1,23 +1,32 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { Hash, TrendingUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Hash, TrendingUp, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { mockTags } from '@/lib/mockData';
-import { useState } from 'react';
+import { tagService } from '@/services/tag.service';
+import { useState, useMemo } from 'react';
 
 export default function Tags() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'popular' | 'alpha'>('popular');
+  const [sortBy, setSortBy] = useState<'popular' | 'name'>('popular');
   const navigate = useNavigate();
 
-  const filteredTags = mockTags
-    .filter(tag => tag.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    .sort((a, b) => {
-      if (sortBy === 'popular') return b.postCount - a.postCount;
-      return a.name.localeCompare(b.name);
-    });
+  // Fetch tags from API
+  const { data: tags, isLoading } = useQuery({
+    queryKey: ['tags', sortBy],
+    queryFn: () => tagService.getTags(sortBy),
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+  });
+
+  const filteredTags = useMemo(() => {
+    if (!tags) return [];
+    
+    return tags.filter(tag => 
+      tag.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [tags, searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -48,18 +57,25 @@ export default function Tags() {
             Populares
           </Button>
           <Button
-            variant={sortBy === 'alpha' ? 'default' : 'outline'}
+            variant={sortBy === 'name' ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setSortBy('alpha')}
+            onClick={() => setSortBy('name')}
           >
             A-Z
           </Button>
         </div>
       </div>
 
-      {/* Tags grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredTags.map(tag => (
+      {/* Loading state */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <>
+          {/* Tags grid */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredTags.map(tag => (
           <Card 
             key={tag.id} 
             variant="hover" 
@@ -81,17 +97,19 @@ export default function Tags() {
               </p>
             </CardContent>
           </Card>
-        ))}
-      </div>
+            ))}
+          </div>
 
-      {filteredTags.length === 0 && (
-        <div className="text-center py-12">
-          <Hash className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Nenhuma tag encontrada</h3>
-          <p className="text-muted-foreground">
-            Tente buscar com outros termos
-          </p>
-        </div>
+          {filteredTags.length === 0 && (
+            <div className="text-center py-12">
+              <Hash className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Nenhuma tag encontrada</h3>
+              <p className="text-muted-foreground">
+                {searchQuery ? 'Tente buscar com outros termos' : 'Nenhuma tag disponível no momento'}
+              </p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

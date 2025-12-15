@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
   Search,
@@ -13,6 +14,7 @@ import {
   Code2,
   Shield,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -27,7 +29,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/stores/authStore";
 import { useThemeStore } from "@/stores/themeStore";
-import { mockNotifications } from "@/lib/mockData";
+import { notificationService } from "@/services/notification.service";
+import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -39,8 +44,43 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
+  const queryClient = useQueryClient();
 
-  const unreadNotifications = mockNotifications.filter((n) => !n.read).length;
+  // Fetch notifications for authenticated users
+  const { data: notificationsData, isLoading: isLoadingNotifications } =
+    useQuery({
+      queryKey: ["notifications", user?.id],
+      queryFn: () => notificationService.getNotifications(1, 10, false),
+      enabled: isAuthenticated && !!user,
+      refetchInterval: 30000, // Refetch every 30 seconds
+    });
+
+  const notifications = notificationsData?.data || [];
+  const unreadNotifications = notificationsData?.meta?.unreadCount || 0;
+
+  // Mark notification as read
+  const markAsReadMutation = useMutation({
+    mutationFn: (notificationId: string) =>
+      notificationService.markAsRead(notificationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+    onError: () => {
+      toast.error("Erro ao marcar notificação como lida");
+    },
+  });
+
+  // Mark all as read
+  const markAllAsReadMutation = useMutation({
+    mutationFn: () => notificationService.markAllAsRead(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      toast.success("Todas as notificações foram marcadas como lidas");
+    },
+    onError: () => {
+      toast.error("Erro ao marcar notificações como lidas");
+    },
+  });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,8 +98,41 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
     return username.slice(0, 2).toUpperCase();
   };
 
-  const isAdmin = user?.roles?.includes('ADMIN');
-  const isModerator = user?.roles?.includes('MODERATOR') || isAdmin;
+  const handleNotificationClick = (notification: any) => {
+    // Mark as read
+    if (!notification.read) {
+      markAsReadMutation.mutate(notification.id);
+    }
+
+    // Navigate to related content
+    if (notification.relatedPostSlug) {
+      navigate(`/posts/${notification.relatedPostSlug}`);
+    } else if (notification.relatedPostId) {
+      // Fallback if slug not available
+      navigate(`/posts/${notification.relatedPostId}`);
+    }
+  };
+
+  const handleMarkAllAsRead = () => {
+    if (unreadNotifications > 0) {
+      markAllAsReadMutation.mutate();
+    }
+  };
+
+  const getNotificationTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      comment: "💬",
+      reply: "↩️",
+      vote: "👍",
+      accepted: "✅",
+      mention: "📢",
+      system: "🔔",
+    };
+    return labels[type] || "🔔";
+  };
+
+  const isAdmin = user?.roles?.includes("ADMIN");
+  const isModerator = user?.roles?.includes("MODERATOR") || isAdmin;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -126,7 +199,7 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                     <Bell className="h-5 w-5" />
                     {unreadNotifications > 0 && (
                       <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
-                        {unreadNotifications}
+                        {unreadNotifications > 99 ? "99+" : unreadNotifications}
                       </span>
                     )}
                   </Button>
@@ -134,49 +207,81 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                 <DropdownMenuContent align="end" className="w-80 bg-popover">
                   <div className="flex items-center justify-between p-3 border-b border-border">
                     <span className="font-semibold">Notificações</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs text-muted-foreground"
-                    >
-                      Marcar todas como lidas
-                    </Button>
+                    {unreadNotifications > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                        onClick={handleMarkAllAsRead}
+                        disabled={markAllAsReadMutation.isPending}
+                      >
+                        {markAllAsReadMutation.isPending ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          "Marcar todas como lidas"
+                        )}
+                      </Button>
+                    )}
                   </div>
                   <div className="max-h-80 overflow-y-auto">
-                    {mockNotifications.slice(0, 5).map((notification) => (
-                      <DropdownMenuItem
-                        key={notification.id}
-                        className={`flex flex-col items-start gap-1 p-3 cursor-pointer ${
-                          !notification.read ? "bg-primary/5" : ""
-                        }`}
-                        onClick={() =>
-                          notification.relatedPostSlug &&
-                          navigate(`/posts/${notification.relatedPostSlug}`)
-                        }
-                      >
-                        <span
-                          className={`text-sm ${
-                            !notification.read
-                              ? "font-medium"
-                              : "text-muted-foreground"
+                    {isLoadingNotifications ? (
+                      <div className="flex items-center justify-center p-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center p-8 text-center">
+                        <Bell className="h-8 w-8 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          Nenhuma notificação
+                        </p>
+                      </div>
+                    ) : (
+                      notifications.map((notification) => (
+                        <DropdownMenuItem
+                          key={notification.id}
+                          className={`flex flex-col items-start gap-1 p-3 cursor-pointer ${
+                            !notification.read ? "bg-primary/5" : ""
                           }`}
+                          onClick={() => handleNotificationClick(notification)}
                         >
-                          {notification.message}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(notification.createdAt).toLocaleDateString(
-                            "pt-BR"
-                          )}
-                        </span>
-                      </DropdownMenuItem>
-                    ))}
+                          <div className="flex items-start gap-2 w-full">
+                            <span className="text-base shrink-0">
+                              {getNotificationTypeLabel(notification.type)}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p
+                                className={`text-sm ${
+                                  !notification.read
+                                    ? "font-medium text-foreground"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                {notification.message}
+                              </p>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDistanceToNow(
+                                  new Date(notification.createdAt),
+                                  {
+                                    addSuffix: true,
+                                    locale: ptBR,
+                                  }
+                                )}
+                              </span>
+                            </div>
+                            {!notification.read && (
+                              <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1" />
+                            )}
+                          </div>
+                        </DropdownMenuItem>
+                      ))
+                    )}
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="justify-center text-primary cursor-pointer"
                     onClick={() => navigate("/notifications")}
                   >
-                    Ver todas
+                    Ver todas as notificações
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -234,7 +339,7 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                     <>
                       <DropdownMenuSeparator />
                       {isAdmin && (
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => navigate("/admin")}
                           className="text-primary focus:text-primary font-medium"
                         >
@@ -243,7 +348,7 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                         </DropdownMenuItem>
                       )}
                       {isModerator && !isAdmin && (
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => navigate("/moderator")}
                           className="text-purple-600 focus:text-purple-600 font-medium"
                         >

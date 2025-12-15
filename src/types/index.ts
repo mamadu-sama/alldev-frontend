@@ -46,12 +46,24 @@ export interface Comment {
 
 export interface Notification {
   id: string;
-  type: 'comment' | 'reply' | 'vote' | 'accepted' | 'mention';
+  type: 'comment' | 'reply' | 'vote' | 'accepted' | 'mention' | 'system';
+  title?: string;
   message: string;
   read: boolean;
   relatedPostId?: string;
   relatedPostSlug?: string;
   relatedCommentId?: string;
+  senderId?: string;
+  sender?: {
+    id: string;
+    username: string;
+    avatarUrl?: string;
+  };
+  post?: {
+    id: string;
+    slug: string;
+    title: string;
+  };
   createdAt: string;
 }
 

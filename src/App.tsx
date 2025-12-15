@@ -49,6 +49,7 @@ import ModeratorReports from "@/pages/moderator/ModeratorReports";
 import ModeratorHistory from "@/pages/moderator/ModeratorHistory";
 import ModeratorProfile from "@/pages/moderator/ModeratorProfile";
 import AdminProfile from "@/pages/admin/AdminProfile";
+import Notifications from "@/pages/Notifications";
 import { MaintenancePage } from "@/pages/MaintenancePage";
 import { useMaintenanceStore } from "@/stores/maintenanceStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -128,6 +129,7 @@ function AppRoutes() {
           <Route path="/posts/:slug" element={<PostDetails />} />
           <Route path="/users/:username" element={<UserProfile />} />
           <Route path="/profile/edit" element={<EditProfile />} />
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="/tags" element={<Tags />} />
           <Route path="/tags/:slug" element={<TagDetails />} />
           <Route path="/search" element={<Search />} />

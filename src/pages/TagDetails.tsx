@@ -1,25 +1,46 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Hash } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft, Hash, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PostCard } from '@/components/post/PostCard';
-import { mockTags, mockPosts } from '@/lib/mockData';
+import { tagService } from '@/services/tag.service';
+import { toast } from 'sonner';
 
 export default function TagDetails() {
-  const { slug } = useParams();
-  const tag = mockTags.find(t => t.slug === slug);
-  const posts = mockPosts.filter(p => p.tags.some(t => t.slug === slug));
+  const { slug } = useParams<{ slug: string }>();
 
-  if (!tag) {
+  // Fetch tag and posts
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['tag', slug, 'posts'],
+    queryFn: () => tagService.getPostsByTag(slug!, 1, 50),
+    enabled: !!slug,
+    retry: 1,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
     return (
       <div className="text-center py-12">
         <h2 className="text-2xl font-bold mb-4">Tag não encontrada</h2>
+        <p className="text-muted-foreground mb-6">
+          A tag que você procura não existe ou foi removida.
+        </p>
         <Button asChild>
           <Link to="/tags">Ver todas as tags</Link>
         </Button>
       </div>
     );
   }
+
+  const { tag, posts } = data;
 
   return (
     <div className="space-y-6">

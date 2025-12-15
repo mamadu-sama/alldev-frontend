@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Hash, Users, TrendingUp, Bookmark, HelpCircle } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Home, Hash, Users, TrendingUp, HelpCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { mockTags } from '@/lib/mockData';
+import { tagService } from '@/services/tag.service';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -19,7 +20,15 @@ const navItems = [
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
-  const topTags = mockTags.slice(0, 5);
+
+  // Fetch popular tags from API
+  const { data: tags, isLoading: isLoadingTags } = useQuery({
+    queryKey: ['tags', 'popular'],
+    queryFn: () => tagService.getTags('popular'),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  const topTags = tags?.slice(0, 5) || [];
 
   return (
     <>
@@ -69,21 +78,31 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               Tags Populares
             </h3>
             <div className="space-y-1">
-              {topTags.map((tag) => (
-                <Link
-                  key={tag.id}
-                  to={`/tags/${tag.slug}`}
-                  onClick={onClose}
-                  className="flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
-                >
-                  <span className="text-muted-foreground hover:text-foreground">
-                    #{tag.name}
-                  </span>
-                  <Badge variant="outline" className="text-xs">
-                    {tag.postCount}
-                  </Badge>
-                </Link>
-              ))}
+              {isLoadingTags ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : topTags.length > 0 ? (
+                topTags.map((tag) => (
+                  <Link
+                    key={tag.id}
+                    to={`/tags/${tag.slug}`}
+                    onClick={onClose}
+                    className="flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent"
+                  >
+                    <span className="text-muted-foreground hover:text-foreground">
+                      #{tag.name}
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      {tag.postCount}
+                    </Badge>
+                  </Link>
+                ))
+              ) : (
+                <p className="px-3 py-2 text-xs text-muted-foreground">
+                  Nenhuma tag disponível
+                </p>
+              )}
             </div>
           </div>
 

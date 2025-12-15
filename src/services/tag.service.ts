@@ -26,6 +26,27 @@ export const tagService = {
     return response.data.data;
   },
 
+  async getPostsByTag(slug: string, page: number = 1, limit: number = 20): Promise<{
+    posts: any[];
+    tag: Tag;
+    total: number;
+    page: number;
+    limit: number;
+    hasMore: boolean;
+  }> {
+    const response = await api.get(`/tags/${slug}/posts`, {
+      params: { page, limit },
+    });
+    return {
+      posts: response.data.data,
+      tag: response.data.meta.tag,
+      total: response.data.meta.total,
+      page: response.data.meta.page,
+      limit: response.data.meta.limit,
+      hasMore: response.data.meta.hasMore,
+    };
+  },
+
   async createTag(data: CreateTagData): Promise<Tag> {
     const response = await api.post('/tags', data);
     return response.data.data;
