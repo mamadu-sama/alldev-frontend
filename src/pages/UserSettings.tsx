@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Bell, Music, ArrowRight } from "lucide-react";
+import { ArrowLeft, User, Bell, Music, ArrowRight, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,15 +11,38 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NotificationSoundSettings } from "@/components/settings/NotificationSoundSettings";
 import { useAuthStore } from "@/stores/authStore";
+import onboardingService from "@/services/onboarding.service";
+import { useToast } from "@/hooks/use-toast";
 
 export default function UserSettings() {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
+  const { toast } = useToast();
 
   if (!isAuthenticated || !user) {
     navigate("/login");
     return null;
   }
+
+  const handleRestartTour = async () => {
+    try {
+      await onboardingService.resetOnboarding();
+      toast({
+        title: "Tour reiniciado!",
+        description: "O tour guiado será exibido em alguns instantes.",
+      });
+      // Recarrega a página para iniciar o tour
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível reiniciar o tour. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="container max-w-5xl py-8">
@@ -75,6 +98,28 @@ export default function UserSettings() {
                   </Button>
                 </p>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Route className="h-5 w-5" />
+                Tour Guiado
+              </CardTitle>
+              <CardDescription>
+                Reveja o tour de introdução à plataforma
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Quer conhecer novamente as funcionalidades da plataforma? Clique
+                no botão abaixo para reiniciar o tour guiado interativo.
+              </p>
+              <Button onClick={handleRestartTour} variant="outline">
+                <Route className="mr-2 h-4 w-4" />
+                Reiniciar Tour Guiado
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

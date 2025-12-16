@@ -205,7 +205,7 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
 
         {/* Search bar */}
         <form onSubmit={handleSearch} className="flex-1 max-w-xl mx-4">
-          <div className="relative">
+          <div className="relative" data-tour="search">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
@@ -238,7 +238,12 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
               {/* Notifications */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative"
+                    data-tour="notifications"
+                  >
                     <Bell className="h-5 w-5" />
                     {unreadNotifications > 0 && (
                       <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
@@ -335,6 +340,7 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                   <Button
                     variant="ghost"
                     className="relative h-9 w-9 rounded-full"
+                    data-tour="user-menu"
                   >
                     <Avatar size="sm">
                       <AvatarImage src={user.avatarUrl} alt={user.username} />

@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, TrendingUp, Clock, HelpCircle, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PostCard } from '@/components/post/PostCard';
-import { useAuthStore } from '@/stores/authStore';
-import { postService } from '@/services/post.service';
-import { useToast } from '@/hooks/use-toast';
-import type { PostFilter, Post } from '@/types';
+import { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Plus, TrendingUp, Clock, HelpCircle, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PostCard } from "@/components/post/PostCard";
+import { useAuthStore } from "@/stores/authStore";
+import { postService } from "@/services/post.service";
+import { useToast } from "@/hooks/use-toast";
+import type { PostFilter, Post } from "@/types";
 
 export default function Feed() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentFilter = (searchParams.get('filter') as PostFilter) || 'recent';
+  const currentFilter = (searchParams.get("filter") as PostFilter) || "recent";
   const { isAuthenticated } = useAuthStore();
   const { toast } = useToast();
 
@@ -27,9 +27,9 @@ export default function Feed() {
         setPosts(response.data);
       } catch (error) {
         toast({
-          title: 'Erro ao carregar posts',
-          description: 'Não foi possível carregar os posts. Tente novamente.',
-          variant: 'destructive',
+          title: "Erro ao carregar posts",
+          description: "Não foi possível carregar os posts. Tente novamente.",
+          variant: "destructive",
         });
       } finally {
         setIsLoading(false);
@@ -43,46 +43,55 @@ export default function Feed() {
     setSearchParams({ filter });
   };
 
-  const handleVote = (postId: string, voteType: 'up' | 'down') => {
-    setPosts(posts.map(post => {
-      if (post.id !== postId) return post;
-      
-      let newVotes = post.votes;
-      let newUserVote = post.userVote;
+  const handleVote = (postId: string, voteType: "up" | "down") => {
+    setPosts(
+      posts.map((post) => {
+        if (post.id !== postId) return post;
 
-      if (post.userVote === voteType) {
-        // Remove vote
-        newVotes = voteType === 'up' ? post.votes - 1 : post.votes + 1;
-        newUserVote = null;
-      } else if (post.userVote) {
-        // Change vote
-        newVotes = voteType === 'up' ? post.votes + 2 : post.votes - 2;
-        newUserVote = voteType;
-      } else {
-        // New vote
-        newVotes = voteType === 'up' ? post.votes + 1 : post.votes - 1;
-        newUserVote = voteType;
-      }
+        let newVotes = post.votes;
+        let newUserVote = post.userVote;
 
-      return { ...post, votes: newVotes, userVote: newUserVote };
-    }));
+        if (post.userVote === voteType) {
+          // Remove vote
+          newVotes = voteType === "up" ? post.votes - 1 : post.votes + 1;
+          newUserVote = null;
+        } else if (post.userVote) {
+          // Change vote
+          newVotes = voteType === "up" ? post.votes + 2 : post.votes - 2;
+          newUserVote = voteType;
+        } else {
+          // New vote
+          newVotes = voteType === "up" ? post.votes + 1 : post.votes - 1;
+          newUserVote = voteType;
+        }
+
+        return { ...post, votes: newVotes, userVote: newUserVote };
+      })
+    );
   };
 
   // Sort posts based on filter
   const sortedPosts = [...posts].sort((a, b) => {
     switch (currentFilter) {
-      case 'votes':
+      case "votes":
         return b.votes - a.votes;
-      case 'unanswered':
-        return a.hasAcceptedAnswer === b.hasAcceptedAnswer ? 0 : a.hasAcceptedAnswer ? 1 : -1;
+      case "unanswered":
+        return a.hasAcceptedAnswer === b.hasAcceptedAnswer
+          ? 0
+          : a.hasAcceptedAnswer
+          ? 1
+          : -1;
       default:
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
     }
   });
 
-  const filteredPosts = currentFilter === 'unanswered' 
-    ? sortedPosts.filter(p => !p.hasAcceptedAnswer)
-    : sortedPosts;
+  const filteredPosts =
+    currentFilter === "unanswered"
+      ? sortedPosts.filter((p) => !p.hasAcceptedAnswer)
+      : sortedPosts;
 
   return (
     <div className="space-y-6">
@@ -94,9 +103,15 @@ export default function Feed() {
             Descubra discussões e ajude outros desenvolvedores
           </p>
         </div>
-        
+
         {isAuthenticated ? (
-          <Button variant="gradient" size="lg" asChild className="shrink-0">
+          <Button
+            variant="gradient"
+            size="lg"
+            asChild
+            className="shrink-0"
+            data-tour="create-post"
+          >
             <Link to="/posts/new">
               <Plus className="h-5 w-5 mr-1" />
               Nova Pergunta
@@ -104,9 +119,7 @@ export default function Feed() {
           </Button>
         ) : (
           <Button variant="gradient" size="lg" asChild className="shrink-0">
-            <Link to="/login">
-              Entrar para Perguntar
-            </Link>
+            <Link to="/login">Entrar para Perguntar</Link>
           </Button>
         )}
       </div>
@@ -141,8 +154,8 @@ export default function Feed() {
           </div>
         ) : filteredPosts.length > 0 ? (
           filteredPosts.map((post, index) => (
-            <div 
-              key={post.id} 
+            <div
+              key={post.id}
               className="animate-slide-up"
               style={{ animationDelay: `${index * 50}ms` }}
             >
@@ -152,11 +165,13 @@ export default function Feed() {
         ) : (
           <div className="text-center py-12">
             <HelpCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhum post encontrado</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              Nenhum post encontrado
+            </h3>
             <p className="text-muted-foreground">
-              {currentFilter === 'unanswered' 
-                ? 'Todas as perguntas foram respondidas!'
-                : 'Seja o primeiro a criar um post.'}
+              {currentFilter === "unanswered"
+                ? "Todas as perguntas foram respondidas!"
+                : "Seja o primeiro a criar um post."}
             </p>
           </div>
         )}

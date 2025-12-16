@@ -90,7 +90,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </nav>
 
           {/* Popular Tags */}
-          <div className="space-y-3">
+          <div className="space-y-3" data-tour="sidebar">
             <h3 className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Tags Populares
             </h3>

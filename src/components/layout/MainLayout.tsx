@@ -4,6 +4,7 @@ import { Header } from "./Header";
 import { Sidebar } from "./Sidebar";
 import { Footer } from "./Footer";
 import { EnableNotificationSounds } from "@/components/common/EnableNotificationSounds";
+import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { useThemeStore } from "@/stores/themeStore";
 
 export function MainLayout() {
@@ -38,6 +39,9 @@ export function MainLayout() {
 
       {/* Prompt to enable notification sounds (browser autoplay policy) */}
       <EnableNotificationSounds />
+
+      {/* Onboarding Tour for new users */}
+      <OnboardingTour />
     </div>
   );
 }
