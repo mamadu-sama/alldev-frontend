@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Bell } from "lucide-react";
+import { ArrowLeft, User, Bell, Music, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -83,6 +83,33 @@ export default function UserSettings() {
         <TabsContent value="notifications" className="space-y-4 mt-6">
           <NotificationSoundSettings />
 
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Music className="h-5 w-5 text-primary" />
+                Sons Personalizados por Tipo
+              </CardTitle>
+              <CardDescription>
+                Configure sons diferentes para cada tipo de notificação
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">
+                Escolha sons específicos para comentários, respostas, votos e
+                mais!
+              </p>
+              <Button
+                onClick={() => navigate("/settings/sounds")}
+                className="w-full group"
+                variant="gradient"
+              >
+                <Music className="mr-2 h-4 w-4" />
+                Configurar Sons de Notificação
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Preferências de Notificação</CardTitle>
@@ -92,8 +119,9 @@ export default function UserSettings() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                As notificações são atualizadas automaticamente a cada 30
-                segundos quando você está conectado.
+                As notificações são atualizadas automaticamente a cada 5
+                segundos quando você está conectado para fornecer uma
+                experiência em tempo real.
               </p>
             </CardContent>
           </Card>

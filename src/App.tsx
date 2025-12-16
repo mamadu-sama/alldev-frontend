@@ -52,6 +52,7 @@ import ModeratorProfile from "@/pages/moderator/ModeratorProfile";
 import AdminProfile from "@/pages/admin/AdminProfile";
 import Notifications from "@/pages/Notifications";
 import UserSettings from "@/pages/UserSettings";
+import NotificationSoundsSettings from "@/pages/settings/NotificationSoundsSettings";
 import { MaintenancePage } from "@/pages/MaintenancePage";
 import { useMaintenanceStore } from "@/stores/maintenanceStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -108,7 +109,10 @@ function AppRoutes() {
           <Route path="/admin/notifications" element={<AdminNotifications />} />
           <Route path="/admin/features" element={<AdminFeatures />} />
           <Route path="/admin/messages" element={<AdminMessages />} />
-          <Route path="/admin/notification-sounds" element={<AdminNotificationSounds />} />
+          <Route
+            path="/admin/notification-sounds"
+            element={<AdminNotificationSounds />}
+          />
           <Route path="/admin/settings" element={<AdminSettings />} />
           <Route path="/admin/profile" element={<AdminProfile />} />
         </Route>
@@ -134,6 +138,10 @@ function AppRoutes() {
           <Route path="/profile/edit" element={<EditProfile />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/settings" element={<UserSettings />} />
+          <Route
+            path="/settings/sounds"
+            element={<NotificationSoundsSettings />}
+          />
           <Route path="/tags" element={<Tags />} />
           <Route path="/tags/:slug" element={<TagDetails />} />
           <Route path="/search" element={<Search />} />

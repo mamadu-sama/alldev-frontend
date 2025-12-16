@@ -33,7 +33,7 @@ import { notificationService } from "@/services/notification.service";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { useUserNotificationSounds } from "@/hooks/useUserNotificationSounds";
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -46,16 +46,19 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
   const { user, isAuthenticated, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
   const queryClient = useQueryClient();
-  const { playSound } = useNotificationSound();
+  const { playNotificationSound } = useUserNotificationSounds();
   const previousUnreadCountRef = useRef<number>(0);
 
-  // Fetch notifications for authenticated users
+  // Fetch notifications for authenticated users with faster polling
   const { data: notificationsData, isLoading: isLoadingNotifications } =
     useQuery({
       queryKey: ["notifications", user?.id],
       queryFn: () => notificationService.getNotifications(1, 10, false),
       enabled: isAuthenticated && !!user,
-      refetchInterval: 30000, // Refetch every 30 seconds
+      refetchInterval: 10000, // Refetch every 10 seconds to avoid rate limiting
+      refetchIntervalInBackground: false, // Don't refetch when tab is not active
+      refetchOnWindowFocus: false, // Prevent refetch on window focus to avoid rate limit
+      refetchOnMount: false, // Prevent refetch on mount to avoid rate limit
     });
 
   const notifications = notificationsData?.data || [];
@@ -63,15 +66,40 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
 
   // Play sound when new notifications arrive
   useEffect(() => {
-    if (previousUnreadCountRef.current > 0 && unreadNotifications > previousUnreadCountRef.current) {
-      // New notification received
+    // Check if this is not the first load and we have more unread notifications than before
+    if (
+      previousUnreadCountRef.current >= 0 &&
+      unreadNotifications > previousUnreadCountRef.current &&
+      notifications.length > 0
+    ) {
+      // New notification received - play sound
       const latestNotification = notifications.find((n) => !n.read);
       if (latestNotification) {
-        playSound(latestNotification.type as any);
+        console.log("🔔 Nova notificação recebida:", latestNotification.type);
+
+        // Try to play sound from user preferences (S3) - will fail gracefully if autoplay is blocked
+        try {
+          playNotificationSound(latestNotification.type as any)?.catch(
+            (error) => {
+              console.warn(
+                "Som bloqueado pelo navegador (autoplay policy):",
+                error
+              );
+              // Sound was blocked, but notification will still show visually
+            }
+          );
+        } catch (error) {
+          console.warn("Erro ao tentar tocar som:", error);
+        }
+
+        // Show toast notification (always works)
+        toast.info(latestNotification.message, {
+          duration: 5000,
+        });
       }
     }
     previousUnreadCountRef.current = unreadNotifications;
-  }, [unreadNotifications, notifications, playSound]);
+  }, [unreadNotifications, notifications, playNotificationSound]);
 
   // Mark notification as read
   const markAsReadMutation = useMutation({

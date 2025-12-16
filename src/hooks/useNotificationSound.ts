@@ -1,26 +1,38 @@
-import { useCallback, useRef, useEffect } from 'react';
-import { useNotificationSoundStore, NotificationSoundType } from '@/stores/notificationSoundStore';
-import { soundGenerator } from '@/utils/generateNotificationSound';
+import { useCallback, useRef, useEffect } from "react";
+import {
+  useNotificationSoundStore,
+  NotificationSoundType,
+} from "@/stores/notificationSoundStore";
+import { soundGenerator } from "@/utils/generateNotificationSound";
 
-export type NotificationType = 'COMMENT' | 'REPLY' | 'VOTE' | 'ACCEPTED' | 'SYSTEM' | 'MENTION';
+export type NotificationType =
+  | "COMMENT"
+  | "REPLY"
+  | "VOTE"
+  | "ACCEPTED"
+  | "SYSTEM"
+  | "MENTION";
 
 interface UseNotificationSoundOptions {
   playOnMount?: boolean;
   autoPlay?: boolean;
 }
 
-export function useNotificationSound(options: UseNotificationSoundOptions = {}) {
-  const { enabled, volume, useSystemSound, soundType } = useNotificationSoundStore();
+export function useNotificationSound(
+  options: UseNotificationSoundOptions = {}
+) {
+  const { enabled, volume, useSystemSound, soundType } =
+    useNotificationSoundStore();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const canPlayRef = useRef(true);
 
   // Initialize audio element for system sounds
   useEffect(() => {
     if (useSystemSound) {
-      audioRef.current = new Audio('/sounds/notification.mp3');
+      audioRef.current = new Audio("/sounds/notification.mp3");
       audioRef.current.volume = volume;
     }
-    
+
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -38,18 +50,19 @@ export function useNotificationSound(options: UseNotificationSoundOptions = {}) 
 
   /**
    * Play notification sound based on type
+   * Returns a Promise for error handling
    */
   const playSound = useCallback(
-    (type?: NotificationType | NotificationSoundType) => {
+    async (type?: NotificationType | NotificationSoundType): Promise<void> => {
       try {
         // Check if sound is enabled
         if (!enabled) {
-          return;
+          return Promise.resolve();
         }
 
         // Rate limiting - prevent playing too many sounds at once
         if (!canPlayRef.current) {
-          return;
+          return Promise.resolve();
         }
 
         canPlayRef.current = false;
@@ -63,19 +76,19 @@ export function useNotificationSound(options: UseNotificationSoundOptions = {}) 
         if (useSystemSound && audioRef.current) {
           // Play audio file
           audioRef.current.currentTime = 0;
-          audioRef.current
-            .play()
-            .catch((error) => {
-              console.error('Error playing notification sound:', error);
-              // Fallback to generated sound
-              playGeneratedSound(soundToPlay);
-            });
+          return audioRef.current.play().catch((error) => {
+            console.error("Error playing notification sound:", error);
+            // Fallback to generated sound
+            playGeneratedSound(soundToPlay);
+          });
         } else {
           // Play generated sound
           playGeneratedSound(soundToPlay);
+          return Promise.resolve();
         }
       } catch (error) {
-        console.error('Error in playSound:', error);
+        console.error("Error in playSound:", error);
+        return Promise.reject(error);
       }
     },
     [enabled, volume, useSystemSound, soundType]
@@ -84,45 +97,48 @@ export function useNotificationSound(options: UseNotificationSoundOptions = {}) 
   /**
    * Play generated sound based on type
    */
-  const playGeneratedSound = useCallback((type: NotificationType | NotificationSoundType) => {
-    switch (type) {
-      case 'COMMENT':
-      case 'REPLY':
-      case 'MENTION':
-      case 'message':
-        soundGenerator.playDoubleBeep();
-        break;
-      case 'VOTE':
-        soundGenerator.playSimpleBeep(1000, 100);
-        break;
-      case 'ACCEPTED':
-      case 'success':
-        soundGenerator.playSuccess();
-        break;
-      case 'SYSTEM':
-      case 'warning':
-        soundGenerator.playWarning();
-        break;
-      case 'error':
-        soundGenerator.playError();
-        break;
-      default:
-        soundGenerator.playSimpleBeep();
-    }
-  }, []);
+  const playGeneratedSound = useCallback(
+    (type: NotificationType | NotificationSoundType) => {
+      switch (type) {
+        case "COMMENT":
+        case "REPLY":
+        case "MENTION":
+        case "message":
+          soundGenerator.playDoubleBeep();
+          break;
+        case "VOTE":
+          soundGenerator.playSimpleBeep(1000, 100);
+          break;
+        case "ACCEPTED":
+        case "success":
+          soundGenerator.playSuccess();
+          break;
+        case "SYSTEM":
+        case "warning":
+          soundGenerator.playWarning();
+          break;
+        case "error":
+          soundGenerator.playError();
+          break;
+        default:
+          soundGenerator.playSimpleBeep();
+      }
+    },
+    []
+  );
 
   /**
    * Test sound - useful for settings
    */
   const testSound = useCallback(() => {
     const originalEnabled = enabled;
-    
+
     // Temporarily enable sound for testing
     if (!originalEnabled) {
       useNotificationSoundStore.getState().setEnabled(true);
     }
 
-    playSound('default');
+    playSound("default");
 
     // Restore original state after a delay
     if (!originalEnabled) {
@@ -148,7 +164,7 @@ export function useNotificationSound(options: UseNotificationSoundOptions = {}) 
       }
       return true;
     } catch (error) {
-      console.warn('Audio permission not granted:', error);
+      console.warn("Audio permission not granted:", error);
       return false;
     }
   }, []);
@@ -161,4 +177,3 @@ export function useNotificationSound(options: UseNotificationSoundOptions = {}) 
     volume,
   };
 }
-
