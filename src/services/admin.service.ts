@@ -69,8 +69,8 @@ export interface AdminComment {
 export interface AdminNotificationPayload {
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'success' | 'error';
-  targetAudience: 'all' | 'admins' | 'moderators' | 'users';
+  type: "info" | "warning" | "success" | "error";
+  targetAudience: "all" | "admins" | "moderators" | "users";
 }
 
 export interface AdminNotificationHistory {
@@ -91,17 +91,17 @@ export interface AdminNotificationHistory {
 export const adminService = {
   // Statistics
   async getStatistics(): Promise<AdminStats> {
-    const response = await api.get('/admin/statistics');
+    const response = await api.get("/admin/statistics");
     return response.data.data;
   },
 
   async getRecentPosts(): Promise<RecentPost[]> {
-    const response = await api.get('/admin/recent-posts');
+    const response = await api.get("/admin/recent-posts");
     return response.data.data;
   },
 
   async getRecentUsers(): Promise<RecentUser[]> {
-    const response = await api.get('/admin/recent-users');
+    const response = await api.get("/admin/recent-users");
     return response.data.data;
   },
 
@@ -118,7 +118,11 @@ export const adminService = {
     await api.patch(`/admin/users/${userId}/role`, { roles });
   },
 
-  async banUser(userId: string, reason: string, duration?: number): Promise<void> {
+  async banUser(
+    userId: string,
+    reason: string,
+    duration?: number
+  ): Promise<void> {
     await api.post(`/admin/users/${userId}/ban`, { reason, duration });
   },
 
@@ -153,7 +157,9 @@ export const adminService = {
 
   // Comments Management
   async getAllComments(page: number = 1, limit: number = 50): Promise<any> {
-    const response = await api.get(`/admin/comments?page=${page}&limit=${limit}`);
+    const response = await api.get(
+      `/admin/comments?page=${page}&limit=${limit}`
+    );
     return {
       data: response.data.data,
       meta: response.data.meta,
@@ -166,16 +172,19 @@ export const adminService = {
 
   // Tags Management
   async getAllTags(): Promise<any> {
-    const response = await api.get('/admin/tags');
+    const response = await api.get("/admin/tags");
     return response.data.data;
   },
 
   async createTag(data: { name: string; description: string }): Promise<any> {
-    const response = await api.post('/admin/tags', data);
+    const response = await api.post("/admin/tags", data);
     return response.data.data;
   },
 
-  async updateTag(tagId: string, data: { name: string; description: string }): Promise<any> {
+  async updateTag(
+    tagId: string,
+    data: { name: string; description: string }
+  ): Promise<any> {
     const response = await api.patch(`/admin/tags/${tagId}`, data);
     return response.data.data;
   },
@@ -185,9 +194,13 @@ export const adminService = {
   },
 
   // Reports Management
-  async getAllReports(page: number = 1, limit: number = 50, status?: string): Promise<any> {
+  async getAllReports(
+    page: number = 1,
+    limit: number = 50,
+    status?: string
+  ): Promise<any> {
     let url = `/admin/reports?page=${page}&limit=${limit}`;
-    if (status && status !== 'all') {
+    if (status && status !== "all") {
       url += `&status=${status}`;
     }
     const response = await api.get(url);
@@ -197,24 +210,28 @@ export const adminService = {
     };
   },
 
-  async updateReportStatus(reportId: string, status: string, resolution?: string): Promise<void> {
+  async updateReportStatus(
+    reportId: string,
+    status: string,
+    resolution?: string
+  ): Promise<void> {
     await api.patch(`/admin/reports/${reportId}`, { status, resolution });
   },
 
   // Settings Management
   async getSettings(): Promise<any> {
-    const response = await api.get('/admin/settings');
+    const response = await api.get("/admin/settings");
     return response.data.data;
   },
 
   async updateSettings(data: any): Promise<any> {
-    const response = await api.patch('/admin/settings', data);
+    const response = await api.patch("/admin/settings", data);
     return response.data.data;
   },
 
   // Maintenance Mode
   async getMaintenanceMode(): Promise<any> {
-    const response = await api.get('/admin/maintenance');
+    const response = await api.get("/admin/maintenance");
     return response.data.data;
   },
 
@@ -223,18 +240,42 @@ export const adminService = {
     message?: string;
     endTime?: string | null;
   }): Promise<any> {
-    const response = await api.post('/admin/maintenance', data);
+    const response = await api.post("/admin/maintenance", data);
     return response.data.data;
   },
 
   // Notifications
-  async sendBroadcastNotification(data: AdminNotificationPayload): Promise<{ sent: number }> {
-    const response = await api.post('/admin/notifications/broadcast', data);
+  async getAdminNotifications(
+    page: number = 1,
+    limit: number = 50,
+    type?: string,
+    userId?: string
+  ): Promise<any> {
+    let url = `/admin/notifications?page=${page}&limit=${limit}`;
+    if (type) url += `&type=${type}`;
+    if (userId) url += `&userId=${userId}`;
+
+    const response = await api.get(url);
+    return {
+      data: response.data.data,
+      meta: response.data.meta,
+    };
+  },
+
+  async sendBroadcastNotification(
+    data: AdminNotificationPayload
+  ): Promise<{ sent: number }> {
+    const response = await api.post("/admin/notifications/broadcast", data);
     return response.data.data;
   },
 
-  async getNotificationHistory(page: number = 1, limit: number = 50): Promise<any> {
-    const response = await api.get(`/admin/notifications/history?page=${page}&limit=${limit}`);
+  async getNotificationHistory(
+    page: number = 1,
+    limit: number = 50
+  ): Promise<any> {
+    const response = await api.get(
+      `/admin/notifications/broadcast/history?page=${page}&limit=${limit}`
+    );
     return {
       data: response.data.data,
       meta: response.data.meta,
@@ -243,21 +284,26 @@ export const adminService = {
 
   // Notification Sounds Management
   async getNotificationSounds(activeOnly: boolean = false): Promise<any> {
-    const response = await api.get(`/notification-sounds?activeOnly=${activeOnly}`);
+    const response = await api.get(
+      `/notification-sounds?activeOnly=${activeOnly}`
+    );
     return response.data;
   },
 
   async uploadNotificationSound(formData: FormData): Promise<any> {
-    const response = await api.post('/admin/notification-sounds', formData, {
+    const response = await api.post("/admin/notification-sounds", formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        "Content-Type": "multipart/form-data",
       },
     });
     return response.data;
   },
 
   async updateNotificationSound(soundId: string, data: any): Promise<any> {
-    const response = await api.patch(`/admin/notification-sounds/${soundId}`, data);
+    const response = await api.patch(
+      `/admin/notification-sounds/${soundId}`,
+      data
+    );
     return response.data;
   },
 
@@ -266,7 +312,9 @@ export const adminService = {
   },
 
   async getSoundStatistics(soundId: string): Promise<any> {
-    const response = await api.get(`/admin/notification-sounds/${soundId}/statistics`);
+    const response = await api.get(
+      `/admin/notification-sounds/${soundId}/statistics`
+    );
     return response.data;
   },
 };
