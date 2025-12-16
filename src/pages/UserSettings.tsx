@@ -1,5 +1,13 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Bell, Music, ArrowRight, Route } from "lucide-react";
+import {
+  ArrowLeft,
+  User,
+  Bell,
+  Music,
+  ArrowRight,
+  Route,
+  Shield,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,6 +18,8 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NotificationSoundSettings } from "@/components/settings/NotificationSoundSettings";
+import { ChangePasswordCard } from "@/components/settings/ChangePasswordCard";
+import { DeleteAccountCard } from "@/components/settings/DeleteAccountCard";
 import { useAuthStore } from "@/stores/authStore";
 import onboardingService from "@/services/onboarding.service";
 import { useToast } from "@/hooks/use-toast";
@@ -61,11 +71,15 @@ export default function UserSettings() {
       </div>
 
       {/* Settings Tabs */}
-      <Tabs defaultValue="notifications" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Perfil
+          </TabsTrigger>
+          <TabsTrigger value="security" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Segurança
           </TabsTrigger>
           <TabsTrigger
             value="notifications"
@@ -122,6 +136,12 @@ export default function UserSettings() {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Security Tab */}
+        <TabsContent value="security" className="space-y-4 mt-6">
+          <ChangePasswordCard />
+          <DeleteAccountCard />
         </TabsContent>
 
         {/* Notifications Tab */}

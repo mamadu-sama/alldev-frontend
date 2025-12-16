@@ -77,5 +77,27 @@ export const userService = {
       hasMore: response.data.meta.hasMore,
     };
   },
-};
 
+  /**
+   * Alterar senha do usuário
+   */
+  async changePassword(data: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<{ message: string }> {
+    const response = await api.post("/users/me/change-password", data);
+    return response.data.data;
+  },
+
+  /**
+   * Deletar conta (soft delete)
+   */
+  async deleteAccount(data: {
+    password: string;
+    confirmation: string;
+  }): Promise<{ message: string }> {
+    const response = await api.delete("/users/me", { data });
+    return response.data.data;
+  },
+};
