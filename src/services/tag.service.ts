@@ -1,5 +1,5 @@
-import api from './api';
-import { Tag } from '@/types';
+import api from "./api";
+import { Tag } from "@/types";
 
 export interface CreateTagData {
   name: string;
@@ -12,12 +12,15 @@ export interface UpdateTagData {
 }
 
 export const tagService = {
-  async getTags(sort?: 'popular' | 'name' | 'new', search?: string): Promise<Tag[]> {
+  async getTags(
+    sort?: "popular" | "name" | "new",
+    search?: string
+  ): Promise<Tag[]> {
     const params: any = {};
     if (sort) params.sort = sort;
     if (search) params.search = search;
 
-    const response = await api.get('/tags', { params });
+    const response = await api.get("/tags", { params });
     return response.data.data;
   },
 
@@ -26,7 +29,11 @@ export const tagService = {
     return response.data.data;
   },
 
-  async getPostsByTag(slug: string, page: number = 1, limit: number = 20): Promise<{
+  async getPostsByTag(
+    slug: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{
     posts: any[];
     tag: Tag;
     total: number;
@@ -38,8 +45,8 @@ export const tagService = {
       params: { page, limit },
     });
     return {
-      posts: response.data.data,
-      tag: response.data.meta.tag,
+      posts: response.data.data.posts,
+      tag: response.data.data.tag,
       total: response.data.meta.total,
       page: response.data.meta.page,
       limit: response.data.meta.limit,
@@ -48,7 +55,7 @@ export const tagService = {
   },
 
   async createTag(data: CreateTagData): Promise<Tag> {
-    const response = await api.post('/tags', data);
+    const response = await api.post("/tags", data);
     return response.data.data;
   },
 
@@ -61,6 +68,3 @@ export const tagService = {
     await api.delete(`/tags/${tagId}`);
   },
 };
-
-
-
