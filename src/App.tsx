@@ -41,6 +41,7 @@ import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminNotifications from "@/pages/admin/AdminNotifications";
 import AdminFeatures from "@/pages/admin/AdminFeatures";
 import AdminMessages from "@/pages/admin/AdminMessages";
+import AdminNotificationSounds from "@/pages/admin/AdminNotificationSounds";
 import ModeratorDashboard from "@/pages/moderator/ModeratorDashboard";
 import ModeratorQueue from "@/pages/moderator/ModeratorQueue";
 import ModeratorPosts from "@/pages/moderator/ModeratorPosts";
@@ -50,6 +51,7 @@ import ModeratorHistory from "@/pages/moderator/ModeratorHistory";
 import ModeratorProfile from "@/pages/moderator/ModeratorProfile";
 import AdminProfile from "@/pages/admin/AdminProfile";
 import Notifications from "@/pages/Notifications";
+import UserSettings from "@/pages/UserSettings";
 import { MaintenancePage } from "@/pages/MaintenancePage";
 import { useMaintenanceStore } from "@/stores/maintenanceStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -106,6 +108,7 @@ function AppRoutes() {
           <Route path="/admin/notifications" element={<AdminNotifications />} />
           <Route path="/admin/features" element={<AdminFeatures />} />
           <Route path="/admin/messages" element={<AdminMessages />} />
+          <Route path="/admin/notification-sounds" element={<AdminNotificationSounds />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
           <Route path="/admin/profile" element={<AdminProfile />} />
         </Route>
@@ -130,6 +133,7 @@ function AppRoutes() {
           <Route path="/users/:username" element={<UserProfile />} />
           <Route path="/profile/edit" element={<EditProfile />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/settings" element={<UserSettings />} />
           <Route path="/tags" element={<Tags />} />
           <Route path="/tags/:slug" element={<TagDetails />} />
           <Route path="/search" element={<Search />} />

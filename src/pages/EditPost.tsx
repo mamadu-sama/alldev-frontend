@@ -7,11 +7,11 @@ import { ArrowLeft, Eye, Edit, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MarkdownContent } from "@/components/common/MarkdownContent";
+import { MarkdownEditor } from "@/components/common/MarkdownEditor";
 import { useAuthStore } from "@/stores/authStore";
 import { useToast } from "@/hooks/use-toast";
 import { postService } from "@/services/post.service";
@@ -69,7 +69,7 @@ export default function EditPost() {
       try {
         setIsLoadingPost(true);
         const fetchedPost = await postService.getPostBySlug(slug);
-        
+
         // Check if user is the author
         if (fetchedPost.author.id !== user?.id) {
           toast({
@@ -84,7 +84,7 @@ export default function EditPost() {
         setPost(fetchedPost);
         setValue("title", fetchedPost.title);
         setValue("content", fetchedPost.content);
-        setSelectedTagIds(fetchedPost.tags.map(tag => tag.id));
+        setSelectedTagIds(fetchedPost.tags.map((tag) => tag.id));
       } catch (error) {
         toast({
           title: "Erro ao carregar post",
@@ -250,10 +250,26 @@ export default function EditPost() {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="write" className="mt-0">
-              <Textarea
-                placeholder="Descreva sua dúvida em detalhes usando Markdown..."
-                {...register("content")}
-                className="min-h-80 font-mono text-sm"
+              <MarkdownEditor
+                value={watch("content")}
+                onChange={(value) =>
+                  setValue("content", value, { shouldValidate: true })
+                }
+                placeholder="Descreva sua dúvida em detalhes usando Markdown...
+
+# Contexto
+Explique o contexto do problema
+
+## O que você já tentou?
+Descreva o que já tentou fazer
+
+```javascript
+// Seu código aqui
+```
+
+## Resultado esperado
+O que você espera que aconteça"
+                minHeight="min-h-80"
               />
             </TabsContent>
             <TabsContent value="preview" className="mt-0">
@@ -343,4 +359,3 @@ export default function EditPost() {
     </div>
   );
 }
-

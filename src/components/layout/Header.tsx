@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -33,6 +33,7 @@ import { notificationService } from "@/services/notification.service";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useNotificationSound } from "@/hooks/useNotificationSound";
 
 interface HeaderProps {
   onMenuToggle?: () => void;
@@ -45,6 +46,8 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
   const { user, isAuthenticated, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
   const queryClient = useQueryClient();
+  const { playSound } = useNotificationSound();
+  const previousUnreadCountRef = useRef<number>(0);
 
   // Fetch notifications for authenticated users
   const { data: notificationsData, isLoading: isLoadingNotifications } =
@@ -57,6 +60,18 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
 
   const notifications = notificationsData?.data || [];
   const unreadNotifications = notificationsData?.meta?.unreadCount || 0;
+
+  // Play sound when new notifications arrive
+  useEffect(() => {
+    if (previousUnreadCountRef.current > 0 && unreadNotifications > previousUnreadCountRef.current) {
+      // New notification received
+      const latestNotification = notifications.find((n) => !n.read);
+      if (latestNotification) {
+        playSound(latestNotification.type as any);
+      }
+    }
+    previousUnreadCountRef.current = unreadNotifications;
+  }, [unreadNotifications, notifications, playSound]);
 
   // Mark notification as read
   const markAsReadMutation = useMutation({
@@ -334,6 +349,10 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                   <DropdownMenuItem onClick={() => navigate("/profile/edit")}>
                     <Settings className="mr-2 h-4 w-4" />
                     Editar Perfil
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Configurações
                   </DropdownMenuItem>
                   {(isAdmin || isModerator) && (
                     <>

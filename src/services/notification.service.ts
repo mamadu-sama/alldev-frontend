@@ -31,3 +31,4 @@ export const notificationService = {
     await api.post("/notifications/read-all");
   },
 };
+

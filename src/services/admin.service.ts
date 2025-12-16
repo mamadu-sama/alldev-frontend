@@ -240,4 +240,33 @@ export const adminService = {
       meta: response.data.meta,
     };
   },
+
+  // Notification Sounds Management
+  async getNotificationSounds(activeOnly: boolean = false): Promise<any> {
+    const response = await api.get(`/notification-sounds?activeOnly=${activeOnly}`);
+    return response.data;
+  },
+
+  async uploadNotificationSound(formData: FormData): Promise<any> {
+    const response = await api.post('/admin/notification-sounds', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  async updateNotificationSound(soundId: string, data: any): Promise<any> {
+    const response = await api.patch(`/admin/notification-sounds/${soundId}`, data);
+    return response.data;
+  },
+
+  async deleteNotificationSound(soundId: string): Promise<void> {
+    await api.delete(`/admin/notification-sounds/${soundId}`);
+  },
+
+  async getSoundStatistics(soundId: string): Promise<any> {
+    const response = await api.get(`/admin/notification-sounds/${soundId}/statistics`);
+    return response.data;
+  },
 };

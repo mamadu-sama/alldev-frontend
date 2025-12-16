@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   Shield,
   Bell,
+  Music,
   Lightbulb,
   Mail,
   UserCircle
@@ -24,6 +25,7 @@ const adminNavItems = [
   { icon: Hash, label: 'Tags', href: '/admin/tags' },
   { icon: Flag, label: 'Denúncias', href: '/admin/reports' },
   { icon: Bell, label: 'Notificações', href: '/admin/notifications' },
+  { icon: Music, label: 'Sons de Notificação', href: '/admin/notification-sounds' },
   { icon: Lightbulb, label: 'Sugestões', href: '/admin/features' },
   { icon: Mail, label: 'Mensagens', href: '/admin/messages' },
   { icon: Settings, label: 'Configurações', href: '/admin/settings' },

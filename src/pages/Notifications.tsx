@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -10,6 +10,8 @@ import {
   CheckCircle,
   AtSign,
   AlertCircle,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,12 +29,17 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuthStore } from '@/stores/authStore';
 import { Notification } from '@/types';
+import { useNotificationSound } from '@/hooks/useNotificationSound';
+import { useNotificationSoundStore } from '@/stores/notificationSoundStore';
 
 export default function Notifications() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('all');
+  const { playSound, enabled: soundEnabled } = useNotificationSound();
+  const { toggleSound } = useNotificationSoundStore();
+  const previousUnreadCountRef = useRef<number>(0);
 
   // Fetch notifications
   const { data, isLoading } = useQuery({
@@ -43,6 +50,18 @@ export default function Notifications() {
 
   const notifications = data?.data || [];
   const unreadCount = data?.meta?.unreadCount || 0;
+
+  // Play sound when new notifications arrive
+  useEffect(() => {
+    if (previousUnreadCountRef.current > 0 && unreadCount > previousUnreadCountRef.current) {
+      // New notification received
+      const latestNotification = notifications.find((n) => !n.read);
+      if (latestNotification) {
+        playSound(latestNotification.type as any);
+      }
+    }
+    previousUnreadCountRef.current = unreadCount;
+  }, [unreadCount, notifications, playSound]);
 
   // Mark as read mutation
   const markAsReadMutation = useMutation({
@@ -119,21 +138,35 @@ export default function Notifications() {
                 Acompanhe todas as suas notificações
               </CardDescription>
             </div>
-            {unreadCount > 0 && (
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => markAllAsReadMutation.mutate()}
-                disabled={markAllAsReadMutation.isPending}
+                onClick={toggleSound}
+                title={soundEnabled ? 'Desativar som' : 'Ativar som'}
               >
-                {markAllAsReadMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                {soundEnabled ? (
+                  <Volume2 className="h-4 w-4" />
                 ) : (
-                  <CheckCheck className="h-4 w-4 mr-2" />
+                  <VolumeX className="h-4 w-4" />
                 )}
-                Marcar todas como lidas
               </Button>
-            )}
+              {unreadCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => markAllAsReadMutation.mutate()}
+                  disabled={markAllAsReadMutation.isPending}
+                >
+                  {markAllAsReadMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <CheckCheck className="h-4 w-4 mr-2" />
+                  )}
+                  Marcar todas como lidas
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>

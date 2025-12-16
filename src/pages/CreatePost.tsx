@@ -43,6 +43,7 @@ export default function CreatePost() {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<PostFormData>({
     resolver: zodResolver(postSchema),
@@ -191,7 +192,9 @@ export default function CreatePost() {
             <TabsContent value="write" className="mt-0">
               <MarkdownEditor
                 value={watch("content")}
-                onChange={(value) => setValue("content", value, { shouldValidate: true })}
+                onChange={(value) =>
+                  setValue("content", value, { shouldValidate: true })
+                }
                 placeholder="Descreva sua dúvida em detalhes usando Markdown...
 
 # Contexto
