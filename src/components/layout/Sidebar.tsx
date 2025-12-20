@@ -7,12 +7,14 @@ import {
   TrendingUp,
   HelpCircle,
   Loader2,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { tagService } from "@/services/tag.service";
 import { statsService } from "@/services/stats.service";
 import { formatNumber } from "@/lib/formatNumber";
+import { useAuthStore } from "@/stores/authStore";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -27,8 +29,13 @@ const navItems = [
   { icon: HelpCircle, label: "Sem Resposta", href: "/?filter=unanswered" },
 ];
 
+const authNavItems = [
+  { icon: Star, label: "Minhas Tags", href: "/tags/followed/my-tags" },
+];
+
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
+  const { isAuthenticated } = useAuthStore();
 
   // Fetch popular tags from API
   const { data: tags, isLoading: isLoadingTags } = useQuery({
@@ -87,6 +94,33 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </Link>
               );
             })}
+
+            {/* Authenticated-only nav items */}
+            {isAuthenticated && (
+              <>
+                <div className="my-2 border-t border-border" />
+                {authNavItems.map((item) => {
+                  const isActive = location.pathname === item.href;
+
+                  return (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      onClick={onClose}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                      )}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </>
+            )}
           </nav>
 
           {/* Popular Tags */}

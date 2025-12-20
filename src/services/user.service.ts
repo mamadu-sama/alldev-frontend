@@ -94,10 +94,15 @@ export const userService = {
    * Deletar conta (soft delete)
    */
   async deleteAccount(data: {
-    password: string;
+    password?: string;
+    token?: string;
     confirmation: string;
   }): Promise<{ message: string }> {
     const response = await api.delete("/users/me", { data });
+    return response.data.data;
+  },
+  async requestAccountDeletion(): Promise<{ message: string }> {
+    const response = await api.post("/users/me/request-deletion");
     return response.data.data;
   },
 };

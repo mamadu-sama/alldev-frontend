@@ -1,8 +1,8 @@
-import { Wrench, Clock } from 'lucide-react';
-import { useMaintenanceStore } from '@/stores/maintenanceStore';
-import { Button } from '@/components/ui/button';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { Wrench, Clock } from "lucide-react";
+import { useMaintenanceStore } from "@/stores/maintenanceStore";
+import { Button } from "@/components/ui/button";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export function MaintenancePage() {
   const { maintenanceMessage, estimatedEndTime } = useMaintenanceStore();
@@ -28,7 +28,7 @@ export function MaintenancePage() {
           <div className="flex items-center justify-center gap-2 text-muted-foreground">
             <Clock className="w-5 h-5" />
             <span>
-              Previsão de retorno:{' '}
+              Previsão de retorno:{" "}
               {formatDistanceToNow(new Date(estimatedEndTime), {
                 addSuffix: true,
                 locale: ptBR,
@@ -46,9 +46,12 @@ export function MaintenancePage() {
         <div className="text-sm text-muted-foreground">
           <p>Agradecemos sua paciência!</p>
           <p className="mt-1">
-            Em caso de dúvidas, entre em contato:{' '}
-            <a href="mailto:suporte@alldev.com" className="text-primary hover:underline">
-              suporte@alldev.com
+            Em caso de dúvidas, entre em contato:{" "}
+            <a
+              href="mailto:suporte@alldev.pt"
+              className="text-primary hover:underline"
+            >
+              suporte@alldev.pt
             </a>
           </p>
         </div>

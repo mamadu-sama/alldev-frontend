@@ -19,10 +19,7 @@ export const commentService = {
     const response = await api.get(`/posts/${postId}/comments`, {
       params: { page, limit },
     });
-    return {
-      data: response.data.data,
-      meta: response.data.meta,
-    };
+    return response.data as PaginatedResponse<Comment>;
   },
 
   async createComment(postId: string, data: CreateCommentData): Promise<Comment> {

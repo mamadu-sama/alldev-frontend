@@ -20,6 +20,13 @@ export interface ContactStats {
   replied: number;
 }
 
+export interface ContactMeta {
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
 export const contactAdminService = {
   async getAll(
     page: number = 1,
@@ -27,8 +34,8 @@ export const contactAdminService = {
     status?: string,
     reason?: string,
     search?: string
-  ): Promise<{ data: ContactMessage[]; meta: any }> {
-    const params: any = { page, limit };
+  ): Promise<{ data: ContactMessage[]; meta: ContactMeta }> {
+    const params: Record<string, string | number | undefined> = { page, limit };
     if (status && status !== 'all') params.status = status;
     if (reason && reason !== 'all') params.reason = reason;
     if (search) params.search = search;

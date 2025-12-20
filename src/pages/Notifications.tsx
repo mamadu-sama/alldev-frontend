@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
   CheckCheck,
@@ -12,52 +12,84 @@ import {
   AlertCircle,
   Volume2,
   VolumeX,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { notificationService } from '@/services/notification.service';
-import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { useAuthStore } from '@/stores/authStore';
-import { Notification } from '@/types';
-import { useNotificationSound } from '@/hooks/useNotificationSound';
-import { useNotificationSoundStore } from '@/stores/notificationSoundStore';
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { notificationService } from "@/services/notification.service";
+import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { useAuthStore } from "@/stores/authStore";
+import { Notification } from "@/types";
+import {
+  useNotificationSound,
+  NotificationType as SoundNotificationType,
+} from "@/hooks/useNotificationSound";
+import {
+  useNotificationSoundStore,
+  NotificationSoundType,
+} from "@/stores/notificationSoundStore";
 
 export default function Notifications() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState("all");
   const { playSound, enabled: soundEnabled } = useNotificationSound();
   const { toggleSound } = useNotificationSoundStore();
   const previousUnreadCountRef = useRef<number>(0);
 
   // Fetch notifications
   const { data, isLoading } = useQuery({
-    queryKey: ['notifications', user?.id, activeTab],
-    queryFn: () => notificationService.getNotifications(1, 50, activeTab === 'unread'),
+    queryKey: ["notifications", user?.id, activeTab],
+    queryFn: () =>
+      notificationService.getNotifications(1, 50, activeTab === "unread"),
     enabled: !!user,
   });
 
-  const notifications = data?.data || [];
+  const notifications = useMemo(() => data?.data || [], [data?.data]);
   const unreadCount = data?.meta?.unreadCount || 0;
 
   // Play sound when new notifications arrive
   useEffect(() => {
-    if (previousUnreadCountRef.current > 0 && unreadCount > previousUnreadCountRef.current) {
+    if (
+      previousUnreadCountRef.current > 0 &&
+      unreadCount > previousUnreadCountRef.current
+    ) {
       // New notification received
       const latestNotification = notifications.find((n) => !n.read);
       if (latestNotification) {
-        playSound(latestNotification.type as any);
+        // Map frontend notification type to sound types expected by the hook
+        const mapType = (
+          t: Notification["type"]
+        ): SoundNotificationType | NotificationSoundType => {
+          switch (t) {
+            case "comment":
+              return "COMMENT";
+            case "reply":
+              return "REPLY";
+            case "vote":
+              return "VOTE";
+            case "accepted":
+              return "ACCEPTED";
+            case "mention":
+              return "MENTION";
+            case "system":
+              return "SYSTEM";
+            default:
+              return "default";
+          }
+        };
+
+        playSound(mapType(latestNotification.type));
       }
     }
     previousUnreadCountRef.current = unreadCount;
@@ -68,10 +100,10 @@ export default function Notifications() {
     mutationFn: (notificationId: string) =>
       notificationService.markAsRead(notificationId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
     onError: () => {
-      toast.error('Erro ao marcar notificação como lida');
+      toast.error("Erro ao marcar notificação como lida");
     },
   });
 
@@ -79,11 +111,11 @@ export default function Notifications() {
   const markAllAsReadMutation = useMutation({
     mutationFn: () => notificationService.markAllAsRead(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      toast.success('Todas as notificações foram marcadas como lidas');
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      toast.success("Todas as notificações foram marcadas como lidas");
     },
     onError: () => {
-      toast.error('Erro ao marcar notificações como lidas');
+      toast.error("Erro ao marcar notificações como lidas");
     },
   });
 
@@ -103,16 +135,16 @@ export default function Notifications() {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'comment':
-      case 'reply':
+      case "comment":
+      case "reply":
         return <MessageSquare className="h-5 w-5 text-blue-500" />;
-      case 'vote':
+      case "vote":
         return <ThumbsUp className="h-5 w-5 text-green-500" />;
-      case 'accepted':
+      case "accepted":
         return <CheckCircle className="h-5 w-5 text-emerald-500" />;
-      case 'mention':
+      case "mention":
         return <AtSign className="h-5 w-5 text-purple-500" />;
-      case 'system':
+      case "system":
         return <AlertCircle className="h-5 w-5 text-orange-500" />;
       default:
         return <Bell className="h-5 w-5 text-muted-foreground" />;
@@ -120,7 +152,7 @@ export default function Notifications() {
   };
 
   if (!user) {
-    navigate('/login');
+    navigate("/login");
     return null;
   }
 
@@ -143,7 +175,7 @@ export default function Notifications() {
                 variant="outline"
                 size="sm"
                 onClick={toggleSound}
-                title={soundEnabled ? 'Desativar som' : 'Ativar som'}
+                title={soundEnabled ? "Desativar som" : "Ativar som"}
               >
                 {soundEnabled ? (
                   <Volume2 className="h-4 w-4" />
@@ -199,14 +231,14 @@ export default function Notifications() {
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Bell className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-lg font-medium text-foreground mb-2">
-                    {activeTab === 'unread'
-                      ? 'Nenhuma notificação não lida'
-                      : 'Nenhuma notificação'}
+                    {activeTab === "unread"
+                      ? "Nenhuma notificação não lida"
+                      : "Nenhuma notificação"}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {activeTab === 'unread'
-                      ? 'Você está em dia com suas notificações!'
-                      : 'Quando você receber notificações, elas aparecerão aqui'}
+                    {activeTab === "unread"
+                      ? "Você está em dia com suas notificações!"
+                      : "Quando você receber notificações, elas aparecerão aqui"}
                   </p>
                 </div>
               ) : (
@@ -217,8 +249,8 @@ export default function Notifications() {
                       onClick={() => handleNotificationClick(notification)}
                       className={`flex items-start gap-4 p-4 rounded-lg border transition-colors cursor-pointer ${
                         !notification.read
-                          ? 'bg-primary/5 border-primary/20 hover:bg-primary/10'
-                          : 'border-border hover:bg-accent'
+                          ? "bg-primary/5 border-primary/20 hover:bg-primary/10"
+                          : "border-border hover:bg-accent"
                       }`}
                     >
                       <div className="shrink-0 mt-0.5">
@@ -233,8 +265,8 @@ export default function Notifications() {
                         <p
                           className={`text-sm ${
                             !notification.read
-                              ? 'text-foreground'
-                              : 'text-muted-foreground'
+                              ? "text-foreground"
+                              : "text-muted-foreground"
                           }`}
                         >
                           {notification.message}
@@ -245,10 +277,13 @@ export default function Notifications() {
                           </p>
                         )}
                         <span className="text-xs text-muted-foreground mt-2 inline-block">
-                          {formatDistanceToNow(new Date(notification.createdAt), {
-                            addSuffix: true,
-                            locale: ptBR,
-                          })}
+                          {formatDistanceToNow(
+                            new Date(notification.createdAt),
+                            {
+                              addSuffix: true,
+                              locale: ptBR,
+                            }
+                          )}
                         </span>
                       </div>
                       {!notification.read && (
@@ -265,5 +300,3 @@ export default function Notifications() {
     </div>
   );
 }
-
-

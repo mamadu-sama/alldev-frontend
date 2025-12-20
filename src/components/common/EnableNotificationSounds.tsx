@@ -31,8 +31,9 @@ export function EnableNotificationSounds() {
   const handleEnable = async () => {
     try {
       // Create a silent audio context to "unlock" audio
-      const audioContext = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
+      const AudioCtor = (window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext) as typeof AudioContext;
+      const audioContext = new AudioCtor();
 
       // Play a silent sound to unlock
       const oscillator = audioContext.createOscillator();

@@ -14,7 +14,7 @@ export const reportService = {
   },
 
   async getReports(page: number = 1, limit: number = 20, status?: string) {
-    const params: any = { page, limit };
+    const params: { page: number; limit: number; status?: string } = { page, limit };
     if (status) params.status = status;
 
     const response = await api.get('/reports', { params });

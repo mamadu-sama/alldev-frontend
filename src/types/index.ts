@@ -6,6 +6,8 @@ export interface User {
   coverImageUrl?: string;
   bio?: string;
   skills: string[];
+  provider?: string | null;
+  googleId?: string | null;
   socialLinks?: {
     github?: string;
     linkedin?: string;

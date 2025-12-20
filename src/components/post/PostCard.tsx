@@ -5,6 +5,7 @@ import {
   MessageSquare,
   Eye,
   Check,
+  Star,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -17,10 +18,16 @@ import { ptBR } from "date-fns/locale";
 interface PostCardProps {
   post: Post;
   onVote?: (postId: string, voteType: "up" | "down") => void;
+  followedTagIds?: string[];
 }
 
-export function PostCard({ post, onVote }: PostCardProps) {
+export function PostCard({ post, onVote, followedTagIds = [] }: PostCardProps) {
   const navigate = useNavigate();
+
+  // Check if post has any followed tags
+  const hasFollowedTag = post.tags.some((tag) =>
+    followedTagIds.includes(tag.id)
+  );
 
   const getInitials = (username: string) => {
     return username.slice(0, 2).toUpperCase();
@@ -115,9 +122,21 @@ export function PostCard({ post, onVote }: PostCardProps) {
 
             {/* Title */}
             <Link to={`/posts/${post.slug}`}>
-              <h3 className="text-lg font-semibold text-foreground hover:text-primary transition-colors mb-2 line-clamp-2">
-                {post.title}
-              </h3>
+              <div className="flex items-start gap-2 mb-2">
+                {hasFollowedTag && (
+                  <Badge
+                    variant="secondary"
+                    className="gap-1 text-xs flex-shrink-0 mt-0.5"
+                    title="Post de uma tag que você segue"
+                  >
+                    <Star className="h-3 w-3 fill-primary text-primary" />
+                    Tag Seguida
+                  </Badge>
+                )}
+                <h3 className="text-lg font-semibold text-foreground hover:text-primary transition-colors line-clamp-2">
+                  {post.title}
+                </h3>
+              </div>
             </Link>
 
             {/* Preview */}

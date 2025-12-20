@@ -42,14 +42,17 @@ export const searchService = {
     limit: number = 20,
     tag?: string
   ): Promise<PaginatedResponse<Post>> {
-    const params: any = { q: query, page, limit };
+    interface SearchPostsParams {
+      q: string;
+      page: number;
+      limit: number;
+      tag?: string;
+    }
+    const params: SearchPostsParams = { q: query, page, limit };
     if (tag) params.tag = tag;
 
     const response = await api.get('/search/posts', { params });
-    return {
-      data: response.data.data,
-      meta: response.data.meta,
-    };
+    return response.data;
   },
 
   async autocomplete(

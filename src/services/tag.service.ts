@@ -1,5 +1,5 @@
 import api from "./api";
-import { Tag } from "@/types";
+import { Tag, Post } from "@/types";
 
 export interface CreateTagData {
   name: string;
@@ -11,12 +11,17 @@ export interface UpdateTagData {
   description?: string;
 }
 
+export interface GetTagsParams {
+  sort?: "popular" | "name" | "new";
+  search?: string;
+}
+
 export const tagService = {
   async getTags(
     sort?: "popular" | "name" | "new",
     search?: string
   ): Promise<Tag[]> {
-    const params: any = {};
+    const params: GetTagsParams = {};
     if (sort) params.sort = sort;
     if (search) params.search = search;
 
@@ -34,7 +39,7 @@ export const tagService = {
     page: number = 1,
     limit: number = 20
   ): Promise<{
-    posts: any[];
+    posts: Post[];
     tag: Tag;
     total: number;
     page: number;
@@ -66,5 +71,48 @@ export const tagService = {
 
   async deleteTag(tagId: string): Promise<void> {
     await api.delete(`/tags/${tagId}`);
+  },
+
+  // ============================================
+  // TAG FOLLOW FUNCTIONALITY
+  // ============================================
+
+  /**
+   * Follow a tag
+   */
+  async followTag(tagId: string): Promise<{ message: string }> {
+    const response = await api.post(`/tags/${tagId}/follow`);
+    return response.data.data;
+  },
+
+  /**
+   * Unfollow a tag
+   */
+  async unfollowTag(tagId: string): Promise<{ message: string }> {
+    const response = await api.delete(`/tags/${tagId}/follow`);
+    return response.data.data;
+  },
+
+  /**
+   * Get user's followed tags
+   */
+  async getFollowedTags(): Promise<
+    Array<Tag & { followedAt: string; notifyOnNewPost: boolean }>
+  > {
+    const response = await api.get("/tags/followed/my-tags");
+    return response.data.data;
+  },
+
+  /**
+   * Update notification preference for a followed tag
+   */
+  async updateNotificationPreference(
+    tagId: string,
+    notifyOnNewPost: boolean
+  ): Promise<{ message: string }> {
+    const response = await api.patch(`/tags/${tagId}/follow/notifications`, {
+      notifyOnNewPost,
+    });
+    return response.data.data;
   },
 };

@@ -368,7 +368,7 @@ export function Header({ onMenuToggle, isSidebarOpen }: HeaderProps) {
                           {user.level}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
-                          {user.reputation.toLocaleString()} rep
+                          {(user.reputation ?? 0).toLocaleString()} rep
                         </span>
                       </div>
                     </div>

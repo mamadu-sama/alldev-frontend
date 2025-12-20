@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import axios from "axios";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -28,20 +29,27 @@ import { userService } from "@/services/user.service";
 
 export function DeleteAccountCard() {
   const { toast } = useToast();
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore(); // Adicionar user do store
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const resendRef = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     password: "",
     confirmation: "",
+    token: "",
   });
 
   const [errors, setErrors] = useState({
     password: "",
     confirmation: "",
   });
+
+  // Verificar se é usuário OAuth
+  const isOAuthUser = user?.provider && user.provider !== "local";
 
   const handleDelete = async () => {
     // Reset errors
@@ -54,7 +62,8 @@ export function DeleteAccountCard() {
     let hasError = false;
     const newErrors = { ...errors };
 
-    if (!formData.password) {
+    // Só validar senha se NÃO for usuário OAuth
+    if (!isOAuthUser && !formData.password) {
       newErrors.password = "Senha é obrigatória";
       hasError = true;
     }
@@ -72,7 +81,26 @@ export function DeleteAccountCard() {
     setIsLoading(true);
 
     try {
-      await userService.deleteAccount(formData);
+      // Se for OAuth, usar fluxo com código por email
+      if (isOAuthUser && !formData.token) {
+        await userService.requestAccountDeletion();
+        setCodeSent(true);
+        setResendCooldown(60);
+        toast({
+          title: "Código enviado",
+          description:
+            "Enviamos um código de confirmação para o seu email. Insira-o no campo 'código' e digite DELETE para confirmar.",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Montar payload
+      const dataToSend = isOAuthUser
+        ? { confirmation: formData.confirmation, token: formData.token }
+        : { confirmation: formData.confirmation, password: formData.password };
+
+      await userService.deleteAccount(dataToSend);
 
       toast({
         title: "Conta desativada",
@@ -84,10 +112,19 @@ export function DeleteAccountCard() {
         logout();
         navigate("/");
       }, 2000);
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.error?.message ||
-        "Erro ao desativar conta. Tente novamente.";
+    } catch (error: unknown) {
+      let errorMessage = "Erro ao desativar conta. Tente novamente.";
+
+      if (axios.isAxiosError(error)) {
+        const data = error.response?.data as
+          | { error?: { message?: string } }
+          | undefined;
+        errorMessage = data?.error?.message || error.message || errorMessage;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === "string") {
+        errorMessage = error;
+      }
 
       toast({
         title: "Erro",
@@ -97,6 +134,53 @@ export function DeleteAccountCard() {
       setIsLoading(false);
     }
   };
+
+  const canConfirm =
+    formData.confirmation === "DELETE" &&
+    (isOAuthUser
+      ? !codeSent || formData.token.trim().length > 0
+      : formData.password.trim().length > 0);
+
+  const resendCode = async () => {
+    if (resendCooldown > 0) return;
+    try {
+      setIsLoading(true);
+      await userService.requestAccountDeletion();
+      setCodeSent(true);
+      setResendCooldown(60);
+      toast({
+        title: "Código reenviado",
+        description: "Verifique seu e-mail.",
+      });
+    } catch (err) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível reenviar o código.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let timer: number | undefined;
+    if (resendCooldown > 0) {
+      timer = window.setInterval(() => {
+        setResendCooldown((c) => {
+          if (c <= 1) {
+            window.clearInterval(timer);
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000) as unknown as number;
+    }
+
+    return () => {
+      if (timer) window.clearInterval(timer);
+    };
+  }, [resendCooldown]);
 
   return (
     <Card className="border-destructive/50">
@@ -120,6 +204,18 @@ export function DeleteAccountCard() {
             administrador reative sua conta.
           </p>
 
+          {/* Mostrar aviso se for OAuth */}
+          {isOAuthUser && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>Login via {user?.provider}</strong>
+                <br />
+                Como você faz login via {user?.provider}, não é necessário
+                digitar senha para desativar a conta.
+              </p>
+            </div>
+          )}
+
           <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" size="sm">
@@ -133,13 +229,12 @@ export function DeleteAccountCard() {
                   <AlertTriangle className="h-5 w-5" />
                   Tem certeza absoluta?
                 </AlertDialogTitle>
-                <AlertDialogDescription className="space-y-4">
-                  <p>
-                    Esta ação desativará sua conta permanentemente. Você não
-                    poderá mais fazer login até que um administrador reative sua
-                    conta.
-                  </p>
-
+                <AlertDialogDescription className="text-sm text-muted-foreground">
+                  Esta ação desativará sua conta permanentemente. Você não
+                  poderá mais fazer login até que um administrador reative sua
+                  conta.
+                </AlertDialogDescription>
+                <div className="space-y-4">
                   <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
                     <p className="font-semibold text-destructive mb-2">
                       Consequências:
@@ -153,27 +248,33 @@ export function DeleteAccountCard() {
                   </div>
 
                   <div className="space-y-3 pt-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="password">
-                        Digite sua senha para confirmar
-                      </Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        placeholder="Sua senha"
-                        value={formData.password}
-                        onChange={(e) =>
-                          setFormData({ ...formData, password: e.target.value })
-                        }
-                        className={errors.password ? "border-red-500" : ""}
-                        disabled={isLoading}
-                      />
-                      {errors.password && (
-                        <p className="text-sm text-red-500">
-                          {errors.password}
-                        </p>
-                      )}
-                    </div>
+                    {/* Só mostrar campo de senha se NÃO for OAuth */}
+                    {!isOAuthUser && (
+                      <div className="space-y-2">
+                        <Label htmlFor="password">
+                          Digite sua senha para confirmar
+                        </Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="Sua senha"
+                          value={formData.password}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              password: e.target.value,
+                            })
+                          }
+                          className={errors.password ? "border-red-500" : ""}
+                          disabled={isLoading}
+                        />
+                        {errors.password && (
+                          <p className="text-sm text-red-500">
+                            {errors.password}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     <div className="space-y-2">
                       <Label htmlFor="confirmation">
@@ -201,13 +302,61 @@ export function DeleteAccountCard() {
                         </p>
                       )}
                     </div>
+
+                    {/* Campo de código para usuários OAuth */}
+                    {isOAuthUser && (
+                      <div className="space-y-2">
+                        {codeSent ? (
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <Label>Enviamos um código para seu email</Label>
+                              <p className="text-sm text-muted-foreground">
+                                Cole o código abaixo e digite{" "}
+                                <span className="font-mono font-bold">
+                                  DELETE
+                                </span>{" "}
+                                para confirmar. Código válido por 1 hora.
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={resendCode}
+                                disabled={resendCooldown > 0 || isLoading}
+                              >
+                                {resendCooldown > 0
+                                  ? `Reenviar em ${resendCooldown}s`
+                                  : "Reenviar código"}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            Ao confirmar, enviaremos um código por email para
+                            confirmar a exclusão.
+                          </p>
+                        )}
+
+                        <Input
+                          id="token"
+                          type="text"
+                          placeholder="Código de confirmação"
+                          value={formData.token}
+                          onChange={(e) =>
+                            setFormData({ ...formData, token: e.target.value })
+                          }
+                          disabled={isLoading}
+                        />
+                      </div>
+                    )}
                   </div>
-                </AlertDialogDescription>
+                </div>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel
                   onClick={() => {
-                    setFormData({ password: "", confirmation: "" });
+                    setFormData({ password: "", confirmation: "", token: "" });
                     setErrors({ password: "", confirmation: "" });
                   }}
                   disabled={isLoading}
@@ -219,7 +368,7 @@ export function DeleteAccountCard() {
                     e.preventDefault();
                     handleDelete();
                   }}
-                  disabled={isLoading}
+                  disabled={isLoading || !canConfirm}
                   className="bg-destructive hover:bg-destructive/90"
                 >
                   {isLoading ? (
@@ -229,8 +378,14 @@ export function DeleteAccountCard() {
                     </>
                   ) : (
                     <>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Sim, desativar conta
+                      {isOAuthUser && !codeSent ? (
+                        "Enviar Código de Confirmação"
+                      ) : (
+                        <>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Sim, desativar conta
+                        </>
+                      )}
                     </>
                   )}
                 </AlertDialogAction>

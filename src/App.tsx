@@ -7,6 +7,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { ModeratorLayout } from "@/components/moderator/ModeratorLayout";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Feed from "@/pages/Feed";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
@@ -16,6 +17,7 @@ import EditPost from "@/pages/EditPost";
 import UserProfile from "@/pages/UserProfile";
 import Tags from "@/pages/Tags";
 import TagDetails from "@/pages/TagDetails";
+import FollowedTags from "@/pages/FollowedTags";
 import Search from "@/pages/Search";
 import NotFound from "@/pages/NotFound";
 import ContributionGuide from "@/pages/ContributionGuide";
@@ -30,6 +32,8 @@ import CookieConsentBanner from "@/components/common/CookieConsentBanner";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import VerifyEmail from "@/pages/VerifyEmail";
+import OAuthCallback from "@/pages/OAuthCallback";
+import Onboarding from "@/pages/Onboarding";
 import EditProfile from "@/pages/EditProfile";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminUsers from "@/pages/admin/AdminUsers";
@@ -42,6 +46,10 @@ import AdminNotifications from "@/pages/admin/AdminNotifications";
 import AdminFeatures from "@/pages/admin/AdminFeatures";
 import AdminMessages from "@/pages/admin/AdminMessages";
 import AdminNotificationSounds from "@/pages/admin/AdminNotificationSounds";
+import AdminPages from "@/pages/admin/AdminPages";
+import AdminPrivacyPolicy from "@/pages/admin/AdminPrivacyPolicy";
+import AdminTermsOfUse from "@/pages/admin/AdminTermsOfUse";
+import AdminCookiePolicy from "@/pages/admin/AdminCookiePolicy";
 import ModeratorDashboard from "@/pages/moderator/ModeratorDashboard";
 import ModeratorQueue from "@/pages/moderator/ModeratorQueue";
 import ModeratorPosts from "@/pages/moderator/ModeratorPosts";
@@ -56,6 +64,8 @@ import NotificationSoundsSettings from "@/pages/settings/NotificationSoundsSetti
 import { MaintenancePage } from "@/pages/MaintenancePage";
 import { useMaintenanceStore } from "@/stores/maintenanceStore";
 import { useAuthStore } from "@/stores/authStore";
+import { adminService } from "@/services/admin.service";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
@@ -86,6 +96,32 @@ function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
+  // Fetch public maintenance status on app start so anonymous users are redirected immediately
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const maintenance = await adminService.getPublicMaintenanceMode();
+        if (mounted) {
+          useMaintenanceStore
+            .getState()
+            .setMaintenance(
+              !!maintenance.isEnabled,
+              maintenance.message ||
+                "Estamos realizando manutenção no sistema. Voltaremos em breve!",
+              maintenance.endTime || null
+            );
+        }
+      } catch (err) {
+        // ignore: if endpoint fails, we'll rely on API 503 handling
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <MaintenanceWrapper>
       <Routes>
@@ -98,34 +134,68 @@ function AppRoutes() {
           <Route path="/verify-email" element={<VerifyEmail />} />
         </Route>
 
-        {/* Admin routes */}
-        <Route element={<AdminLayout />}>
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
-          <Route path="/admin/posts" element={<AdminPosts />} />
-          <Route path="/admin/comments" element={<AdminComments />} />
-          <Route path="/admin/tags" element={<AdminTags />} />
-          <Route path="/admin/reports" element={<AdminReports />} />
-          <Route path="/admin/notifications" element={<AdminNotifications />} />
-          <Route path="/admin/features" element={<AdminFeatures />} />
-          <Route path="/admin/messages" element={<AdminMessages />} />
-          <Route
-            path="/admin/notification-sounds"
-            element={<AdminNotificationSounds />}
-          />
-          <Route path="/admin/settings" element={<AdminSettings />} />
-          <Route path="/admin/profile" element={<AdminProfile />} />
+        {/* OAuth Callback (outside AuthLayout for custom design) */}
+        <Route path="/auth/callback" element={<OAuthCallback />} />
+
+        {/* Admin routes - Protected */}
+        <Route
+          element={
+            <ProtectedRoute
+              allowedRoles={["ADMIN", "MODERATOR"]}
+              requireAuth={true}
+            />
+          }
+        >
+          <Route element={<AdminLayout />}>
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/posts" element={<AdminPosts />} />
+            <Route path="/admin/comments" element={<AdminComments />} />
+            <Route path="/admin/tags" element={<AdminTags />} />
+            <Route path="/admin/reports" element={<AdminReports />} />
+            <Route
+              path="/admin/notifications"
+              element={<AdminNotifications />}
+            />
+            <Route path="/admin/features" element={<AdminFeatures />} />
+            <Route path="/admin/messages" element={<AdminMessages />} />
+            <Route
+              path="/admin/notification-sounds"
+              element={<AdminNotificationSounds />}
+            />
+            <Route path="/admin/pages" element={<AdminPages />} />
+            <Route
+              path="/admin/privacy-policy"
+              element={<AdminPrivacyPolicy />}
+            />
+            <Route path="/admin/terms-of-use" element={<AdminTermsOfUse />} />
+            <Route
+              path="/admin/cookie-policy"
+              element={<AdminCookiePolicy />}
+            />
+            <Route path="/admin/settings" element={<AdminSettings />} />
+            <Route path="/admin/profile" element={<AdminProfile />} />
+          </Route>
         </Route>
 
-        {/* Moderator routes */}
-        <Route element={<ModeratorLayout />}>
-          <Route path="/moderator" element={<ModeratorDashboard />} />
-          <Route path="/moderator/queue" element={<ModeratorQueue />} />
-          <Route path="/moderator/posts" element={<ModeratorPosts />} />
-          <Route path="/moderator/comments" element={<ModeratorComments />} />
-          <Route path="/moderator/reports" element={<ModeratorReports />} />
-          <Route path="/moderator/history" element={<ModeratorHistory />} />
-          <Route path="/moderator/profile" element={<ModeratorProfile />} />
+        {/* Moderator routes - Protected */}
+        <Route
+          element={
+            <ProtectedRoute
+              allowedRoles={["ADMIN", "MODERATOR"]}
+              requireAuth={true}
+            />
+          }
+        >
+          <Route element={<ModeratorLayout />}>
+            <Route path="/moderator" element={<ModeratorDashboard />} />
+            <Route path="/moderator/queue" element={<ModeratorQueue />} />
+            <Route path="/moderator/posts" element={<ModeratorPosts />} />
+            <Route path="/moderator/comments" element={<ModeratorComments />} />
+            <Route path="/moderator/reports" element={<ModeratorReports />} />
+            <Route path="/moderator/history" element={<ModeratorHistory />} />
+            <Route path="/moderator/profile" element={<ModeratorProfile />} />
+          </Route>
         </Route>
 
         {/* Main routes */}
@@ -144,6 +214,7 @@ function AppRoutes() {
           />
           <Route path="/tags" element={<Tags />} />
           <Route path="/tags/:slug" element={<TagDetails />} />
+          <Route path="/tags/followed/my-tags" element={<FollowedTags />} />
           <Route path="/search" element={<Search />} />
           <Route path="/contribution-guide" element={<ContributionGuide />} />
           <Route path="/terms" element={<TermsOfUse />} />
@@ -159,6 +230,7 @@ function AppRoutes() {
             path="/feature-requests/:id"
             element={<FeatureRequestDetails />}
           />
+          <Route path="/onboarding" element={<Onboarding />} />
         </Route>
 
         {/* 404 */}

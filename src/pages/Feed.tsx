@@ -6,7 +6,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PostCard } from "@/components/post/PostCard";
 import { useAuthStore } from "@/stores/authStore";
 import { postService } from "@/services/post.service";
+import { tagService } from "@/services/tag.service";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 import type { PostFilter, Post } from "@/types";
 
 export default function Feed() {
@@ -17,6 +19,16 @@ export default function Feed() {
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch followed tags for visual indicators
+  const { data: followedTags } = useQuery({
+    queryKey: ["followedTags"],
+    queryFn: () => tagService.getFollowedTags(),
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  const followedTagIds = followedTags?.map((t) => t.id) || [];
 
   // Load posts from API
   useEffect(() => {
@@ -159,7 +171,11 @@ export default function Feed() {
               className="animate-slide-up"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <PostCard post={post} onVote={handleVote} />
+              <PostCard
+                post={post}
+                onVote={handleVote}
+                followedTagIds={followedTagIds}
+              />
             </div>
           ))
         ) : (

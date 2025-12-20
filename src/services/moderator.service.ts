@@ -1,5 +1,31 @@
 import api from './api';
 
+export type QueryParams = Record<string, string | number | undefined>;
+
+export interface PaginationMeta {
+  total: number;
+  perPage: number;
+  currentPage: number;
+  lastPage: number;
+}
+
+/**
+ * Generic paginated response wrapper.
+ */
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: PaginationMeta;
+}
+
+/**
+ * History response including additional stats.
+ */
+export interface HistoryResponse<T = Record<string, unknown>> {
+  data: T[];
+  meta: PaginationMeta;
+  stats: Record<string, unknown>;
+}
+
 export interface ModeratorStats {
   pendingReports: number;
   urgentReports: number;
@@ -74,8 +100,8 @@ export const moderatorService = {
     limit: number = 20,
     priority?: string,
     type?: string
-  ): Promise<{ data: QueueItem[]; meta: any }> {
-    const params: any = { page, limit };
+  ): Promise<{ data: QueueItem[]; meta: PaginationMeta }> {
+    const params: QueryParams = { page, limit };
     if (priority && priority !== 'all') params.priority = priority;
     if (type && type !== 'all') params.type = type;
 
@@ -99,8 +125,8 @@ export const moderatorService = {
     limit: number = 20,
     search?: string,
     status?: string
-  ): Promise<{ data: any[]; meta: any }> {
-    const params: any = { page, limit };
+  ): Promise<PaginatedResponse<Record<string, unknown>>> {
+    const params: QueryParams = { page, limit };
     if (search) params.search = search;
     if (status && status !== 'all') params.status = status;
 
@@ -113,8 +139,8 @@ export const moderatorService = {
     limit: number = 20,
     search?: string,
     status?: string
-  ): Promise<{ data: any[]; meta: any }> {
-    const params: any = { page, limit };
+  ): Promise<PaginatedResponse<Record<string, unknown>>> {
+    const params: QueryParams = { page, limit };
     if (search) params.search = search;
     if (status && status !== 'all') params.status = status;
 
@@ -128,8 +154,8 @@ export const moderatorService = {
     search?: string,
     status?: string,
     type?: string
-  ): Promise<{ data: any[]; meta: any }> {
-    const params: any = { page, limit };
+  ): Promise<PaginatedResponse<Record<string, unknown>>> {
+    const params: QueryParams = { page, limit };
     if (search) params.search = search;
     if (status && status !== 'all') params.status = status;
     if (type && type !== 'all') params.type = type;
@@ -151,8 +177,8 @@ export const moderatorService = {
     limit: number = 20,
     search?: string,
     actionType?: string
-  ): Promise<{ data: any[]; meta: any; stats: any }> {
-    const params: any = { page, limit };
+  ): Promise<HistoryResponse> {
+    const params: QueryParams = { page, limit };
     if (search) params.search = search;
     if (actionType && actionType !== 'all') params.actionType = actionType;
 

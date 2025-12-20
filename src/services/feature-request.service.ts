@@ -55,7 +55,7 @@ export const featureRequestService = {
     sortBy: "votes" | "recent" | "comments" = "votes",
     category?: string,
     status?: string
-  ): Promise<{ data: FeatureRequest[]; meta: any }> {
+  ): Promise<{ data: FeatureRequest[]; meta: Record<string, unknown> }> {
     let url = `/feature-requests?page=${page}&limit=${limit}&sortBy=${sortBy}`;
     if (category && category !== "all") url += `&category=${category}`;
     if (status && status !== "all") url += `&status=${status}`;

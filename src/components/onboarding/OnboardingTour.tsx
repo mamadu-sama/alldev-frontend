@@ -184,9 +184,9 @@ export function OnboardingTour() {
     }
 
     // Quando o tour termina ou é pulado
-    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status as any)) {
+    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
       setRunTour(false);
-
+  
       try {
         if (status === STATUS.FINISHED) {
           await onboardingService.completeOnboarding();

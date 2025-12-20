@@ -20,15 +20,12 @@ export const postService = {
     filter?: PostFilter,
     tag?: string
   ): Promise<PaginatedResponse<Post>> {
-    const params: any = { page, limit };
+    const params: { page: number; limit: number; filter?: PostFilter; tag?: string } = { page, limit };
     if (filter) params.filter = filter;
     if (tag) params.tag = tag;
 
     const response = await api.get('/posts', { params });
-    return {
-      data: response.data.data,
-      meta: response.data.meta,
-    };
+    return response.data as PaginatedResponse<Post>;
   },
 
   async getPostBySlug(slug: string): Promise<Post> {

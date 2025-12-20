@@ -88,6 +88,34 @@ export interface AdminNotificationHistory {
   };
 }
 
+export interface AdminTag {
+  id: string;
+  name: string;
+  description?: string | null;
+}
+
+export type Paginated<T> = {
+  data: T[];
+  meta: Record<string, unknown>;
+};
+
+export type AdminReport = Record<string, unknown>;
+
+export interface NotificationSound {
+  id: string;
+  name: string;
+  url: string;
+  isActive: boolean;
+  createdAt: string;
+  [key: string]: unknown;
+}
+
+export interface MaintenanceMode {
+  isEnabled: boolean;
+  message?: string;
+  endTime?: string | null;
+}
+
 export const adminService = {
   // Statistics
   async getStatistics(): Promise<AdminStats> {
@@ -105,8 +133,10 @@ export const adminService = {
     return response.data.data;
   },
 
-  // User Management
-  async getAllUsers(page: number = 1, limit: number = 50): Promise<any> {
+  async getAllUsers(
+    page: number = 1,
+    limit: number = 50
+  ): Promise<Paginated<AdminUser>> {
     const response = await api.get(`/admin/users?page=${page}&limit=${limit}`);
     return {
       data: response.data.data,
@@ -114,6 +144,7 @@ export const adminService = {
     };
   },
 
+  // User Management
   async updateUserRole(userId: string, roles: string[]): Promise<void> {
     await api.patch(`/admin/users/${userId}/role`, { roles });
   },
@@ -135,7 +166,10 @@ export const adminService = {
   },
 
   // Posts Management
-  async getAllPosts(page: number = 1, limit: number = 50): Promise<any> {
+  async getAllPosts(
+    page: number = 1,
+    limit: number = 50
+  ): Promise<Paginated<AdminPost>> {
     const response = await api.get(`/admin/posts?page=${page}&limit=${limit}`);
     return {
       data: response.data.data,
@@ -156,7 +190,10 @@ export const adminService = {
   },
 
   // Comments Management
-  async getAllComments(page: number = 1, limit: number = 50): Promise<any> {
+  async getAllComments(
+    page: number = 1,
+    limit: number = 50
+  ): Promise<{ data: AdminComment[]; meta: Record<string, unknown> }> {
     const response = await api.get(
       `/admin/comments?page=${page}&limit=${limit}`
     );
@@ -171,22 +208,25 @@ export const adminService = {
   },
 
   // Tags Management
-  async getAllTags(): Promise<any> {
+  async getAllTags(): Promise<AdminTag[]> {
     const response = await api.get("/admin/tags");
-    return response.data.data;
+    return response.data.data as AdminTag[];
   },
 
-  async createTag(data: { name: string; description: string }): Promise<any> {
+  async createTag(data: {
+    name: string;
+    description: string;
+  }): Promise<AdminTag> {
     const response = await api.post("/admin/tags", data);
-    return response.data.data;
+    return response.data.data as AdminTag;
   },
 
   async updateTag(
     tagId: string,
     data: { name: string; description: string }
-  ): Promise<any> {
+  ): Promise<AdminTag> {
     const response = await api.patch(`/admin/tags/${tagId}`, data);
-    return response.data.data;
+    return response.data.data as AdminTag;
   },
 
   async deleteTag(tagId: string): Promise<void> {
@@ -198,7 +238,7 @@ export const adminService = {
     page: number = 1,
     limit: number = 50,
     status?: string
-  ): Promise<any> {
+  ): Promise<Paginated<AdminReport>> {
     let url = `/admin/reports?page=${page}&limit=${limit}`;
     if (status && status !== "all") {
       url += `&status=${status}`;
@@ -219,29 +259,33 @@ export const adminService = {
   },
 
   // Settings Management
-  async getSettings(): Promise<any> {
+  async getSettings(): Promise<Record<string, unknown>> {
     const response = await api.get("/admin/settings");
-    return response.data.data;
+    return response.data.data as Record<string, unknown>;
   },
 
-  async updateSettings(data: any): Promise<any> {
+  async updateSettings(
+    data: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     const response = await api.patch("/admin/settings", data);
-    return response.data.data;
+    return response.data.data as Record<string, unknown>;
   },
 
   // Maintenance Mode
-  async getMaintenanceMode(): Promise<any> {
+  async getMaintenanceMode(): Promise<MaintenanceMode> {
     const response = await api.get("/admin/maintenance");
-    return response.data.data;
+    return response.data.data as MaintenanceMode;
   },
 
-  async updateMaintenanceMode(data: {
-    isEnabled: boolean;
-    message?: string;
-    endTime?: string | null;
-  }): Promise<any> {
+  // Public maintenance endpoint (no auth) used by the frontend to detect maintenance quickly
+  async getPublicMaintenanceMode(): Promise<MaintenanceMode> {
+    const response = await api.get("/maintenance");
+    return response.data.data as MaintenanceMode;
+  },
+
+  async updateMaintenanceMode(data: MaintenanceMode): Promise<MaintenanceMode> {
     const response = await api.post("/admin/maintenance", data);
-    return response.data.data;
+    return response.data.data as MaintenanceMode;
   },
 
   // Notifications
@@ -250,7 +294,7 @@ export const adminService = {
     limit: number = 50,
     type?: string,
     userId?: string
-  ): Promise<any> {
+  ): Promise<Paginated<AdminNotificationHistory>> {
     let url = `/admin/notifications?page=${page}&limit=${limit}`;
     if (type) url += `&type=${type}`;
     if (userId) url += `&userId=${userId}`;
@@ -272,7 +316,7 @@ export const adminService = {
   async getNotificationHistory(
     page: number = 1,
     limit: number = 50
-  ): Promise<any> {
+  ): Promise<Paginated<AdminNotificationHistory>> {
     const response = await api.get(
       `/admin/notifications/broadcast/history?page=${page}&limit=${limit}`
     );
@@ -283,38 +327,45 @@ export const adminService = {
   },
 
   // Notification Sounds Management
-  async getNotificationSounds(activeOnly: boolean = false): Promise<any> {
+  async getNotificationSounds(
+    activeOnly: boolean = false
+  ): Promise<NotificationSound[]> {
     const response = await api.get(
       `/notification-sounds?activeOnly=${activeOnly}`
     );
-    return response.data;
+    return response.data.data as NotificationSound[];
   },
 
-  async uploadNotificationSound(formData: FormData): Promise<any> {
+  async uploadNotificationSound(
+    formData: FormData
+  ): Promise<NotificationSound> {
     const response = await api.post("/admin/notification-sounds", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
     });
-    return response.data;
+    return response.data.data as NotificationSound;
   },
 
-  async updateNotificationSound(soundId: string, data: any): Promise<any> {
+  async updateNotificationSound(
+    soundId: string,
+    data: Partial<NotificationSound>
+  ): Promise<NotificationSound> {
     const response = await api.patch(
       `/admin/notification-sounds/${soundId}`,
       data
     );
-    return response.data;
+    return response.data.data as NotificationSound;
   },
 
   async deleteNotificationSound(soundId: string): Promise<void> {
     await api.delete(`/admin/notification-sounds/${soundId}`);
   },
 
-  async getSoundStatistics(soundId: string): Promise<any> {
+  async getSoundStatistics(soundId: string): Promise<Record<string, unknown>> {
     const response = await api.get(
       `/admin/notification-sounds/${soundId}/statistics`
     );
-    return response.data;
+    return response.data as Record<string, unknown>;
   },
 };

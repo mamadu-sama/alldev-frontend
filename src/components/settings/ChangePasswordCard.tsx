@@ -12,9 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { userService } from "@/services/user.service";
+import { useAuthStore } from "@/stores/authStore";
 
 export function ChangePasswordCard() {
   const { toast } = useToast();
+  const { user } = useAuthStore();
+  const isOAuthUser = user?.provider && user.provider !== "local";
   const [isLoading, setIsLoading] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
     current: false,
@@ -99,10 +102,25 @@ export function ChangePasswordCard() {
         newPassword: "",
         confirmPassword: "",
       });
-    } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.error?.message ||
-        "Erro ao alterar senha. Tente novamente.";
+    } catch (error: unknown) {
+      type AxiosLikeError = {
+        response?: {
+          data?: {
+            error?: {
+              message?: string;
+            };
+          };
+        };
+      };
+
+      let errorMessage = "Erro ao alterar senha. Tente novamente.";
+      const axiosMessage = (error as AxiosLikeError).response?.data?.error
+        ?.message;
+      if (axiosMessage) {
+        errorMessage = axiosMessage;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
 
       toast({
         title: "Erro",
@@ -143,147 +161,167 @@ export function ChangePasswordCard() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Senha Atual */}
-          <div className="space-y-2">
-            <Label htmlFor="currentPassword">Senha Atual</Label>
-            <div className="relative">
-              <Input
-                id="currentPassword"
-                type={showPasswords.current ? "text" : "password"}
-                value={formData.currentPassword}
-                onChange={(e) =>
-                  setFormData({ ...formData, currentPassword: e.target.value })
-                }
-                placeholder="Digite sua senha atual"
-                className={errors.currentPassword ? "border-red-500" : ""}
-                disabled={isLoading}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                onClick={() =>
-                  setShowPasswords({
-                    ...showPasswords,
-                    current: !showPasswords.current,
-                  })
-                }
-                disabled={isLoading}
-              >
-                {showPasswords.current ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
-            {errors.currentPassword && (
-              <p className="text-sm text-red-500">{errors.currentPassword}</p>
-            )}
-          </div>
-
-          {/* Nova Senha */}
-          <div className="space-y-2">
-            <Label htmlFor="newPassword">Nova Senha</Label>
-            <div className="relative">
-              <Input
-                id="newPassword"
-                type={showPasswords.new ? "text" : "password"}
-                value={formData.newPassword}
-                onChange={(e) =>
-                  setFormData({ ...formData, newPassword: e.target.value })
-                }
-                placeholder="Digite sua nova senha"
-                className={errors.newPassword ? "border-red-500" : ""}
-                disabled={isLoading}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                onClick={() =>
-                  setShowPasswords({
-                    ...showPasswords,
-                    new: !showPasswords.new,
-                  })
-                }
-                disabled={isLoading}
-              >
-                {showPasswords.new ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
-            {formData.newPassword && passwordStrength.strength && (
-              <p className={`text-sm ${passwordStrength.color}`}>
-                Força: {passwordStrength.strength}
+        {isOAuthUser ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border p-4 bg-blue-50">
+              <p className="font-semibold  text-muted-foreground">
+                Login via {user?.provider}
               </p>
-            )}
-            {errors.newPassword && (
-              <p className="text-sm text-red-500">{errors.newPassword}</p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              A senha deve ter pelo menos 8 caracteres, incluindo maiúsculas,
-              minúsculas e números.
-            </p>
-          </div>
-
-          {/* Confirmar Senha */}
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
-            <div className="relative">
-              <Input
-                id="confirmPassword"
-                type={showPasswords.confirm ? "text" : "password"}
-                value={formData.confirmPassword}
-                onChange={(e) =>
-                  setFormData({ ...formData, confirmPassword: e.target.value })
-                }
-                placeholder="Confirme sua nova senha"
-                className={errors.confirmPassword ? "border-red-500" : ""}
-                disabled={isLoading}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                onClick={() =>
-                  setShowPasswords({
-                    ...showPasswords,
-                    confirm: !showPasswords.confirm,
-                  })
-                }
-                disabled={isLoading}
-              >
-                {showPasswords.confirm ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
+              <p className="text-sm text-muted-foreground">
+                Sua conta está ligada a um provedor externo. Para alterar a
+                senha, use as configurações do provedor (por exemplo, Google).
+              </p>
             </div>
-            {errors.confirmPassword && (
-              <p className="text-sm text-red-500">{errors.confirmPassword}</p>
-            )}
           </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Senha Atual */}
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Senha Atual</Label>
+              <div className="relative">
+                <Input
+                  id="currentPassword"
+                  type={showPasswords.current ? "text" : "password"}
+                  value={formData.currentPassword}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      currentPassword: e.target.value,
+                    })
+                  }
+                  placeholder="Digite sua senha atual"
+                  className={errors.currentPassword ? "border-red-500" : ""}
+                  disabled={isLoading}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() =>
+                    setShowPasswords({
+                      ...showPasswords,
+                      current: !showPasswords.current,
+                    })
+                  }
+                  disabled={isLoading}
+                >
+                  {showPasswords.current ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              {errors.currentPassword && (
+                <p className="text-sm text-red-500">{errors.currentPassword}</p>
+              )}
+            </div>
 
-          <Button type="submit" disabled={isLoading} className="w-full">
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Alterando senha...
-              </>
-            ) : (
-              "Alterar Senha"
-            )}
-          </Button>
-        </form>
+            {/* Nova Senha */}
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">Nova Senha</Label>
+              <div className="relative">
+                <Input
+                  id="newPassword"
+                  type={showPasswords.new ? "text" : "password"}
+                  value={formData.newPassword}
+                  onChange={(e) =>
+                    setFormData({ ...formData, newPassword: e.target.value })
+                  }
+                  placeholder="Digite sua nova senha"
+                  className={errors.newPassword ? "border-red-500" : ""}
+                  disabled={isLoading}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() =>
+                    setShowPasswords({
+                      ...showPasswords,
+                      new: !showPasswords.new,
+                    })
+                  }
+                  disabled={isLoading}
+                >
+                  {showPasswords.new ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              {formData.newPassword && passwordStrength.strength && (
+                <p className={`text-sm ${passwordStrength.color}`}>
+                  Força: {passwordStrength.strength}
+                </p>
+              )}
+              {errors.newPassword && (
+                <p className="text-sm text-red-500">{errors.newPassword}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                A senha deve ter pelo menos 8 caracteres, incluindo maiúsculas,
+                minúsculas e números.
+              </p>
+            </div>
+
+            {/* Confirmar Senha */}
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showPasswords.confirm ? "text" : "password"}
+                  value={formData.confirmPassword}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      confirmPassword: e.target.value,
+                    })
+                  }
+                  placeholder="Confirme sua nova senha"
+                  className={errors.confirmPassword ? "border-red-500" : ""}
+                  disabled={isLoading}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() =>
+                    setShowPasswords({
+                      ...showPasswords,
+                      confirm: !showPasswords.confirm,
+                    })
+                  }
+                  disabled={isLoading}
+                >
+                  {showPasswords.confirm ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              {errors.confirmPassword && (
+                <p className="text-sm text-red-500">{errors.confirmPassword}</p>
+              )}
+            </div>
+
+            <Button type="submit" disabled={isLoading} className="w-full">
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Alterando senha...
+                </>
+              ) : (
+                "Alterar Senha"
+              )}
+            </Button>
+          </form>
+        )}
       </CardContent>
     </Card>
   );
