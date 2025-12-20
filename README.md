@@ -38,57 +38,57 @@
 
 ### Core
 
-| Tecnologia | Versão | Finalidade |
-|------------|---------|---------|
-| **React** | 18.3.1 | Biblioteca UI |
-| **TypeScript** | 5.8.3 | Tipagem Estática |
-| **Vite** | 7.2.7 | Build Tool & Dev Server |
-| **React Router** | 6.30.1 | Navegação Client-side |
+| Tecnologia       | Versão | Finalidade              |
+| ---------------- | ------ | ----------------------- |
+| **React**        | 18.3.1 | Biblioteca UI           |
+| **TypeScript**   | 5.8.3  | Tipagem Estática        |
+| **Vite**         | 7.2.7  | Build Tool & Dev Server |
+| **React Router** | 6.30.1 | Navegação Client-side   |
 
 ### Gestão de Estado
 
-| Biblioteca | Versão | Caso de Uso |
-|---------|---------|----------|
-| **TanStack Query** | 5.83.0 | Estado do Servidor & Caching |
-| **Zustand** | 5.0.9 | Estado do Cliente (Auth, Theme) |
+| Biblioteca         | Versão | Caso de Uso                     |
+| ------------------ | ------ | ------------------------------- |
+| **TanStack Query** | 5.83.0 | Estado do Servidor & Caching    |
+| **Zustand**        | 5.0.9  | Estado do Cliente (Auth, Theme) |
 
 ### UI & Estilos
 
-| Biblioteca | Versão | Finalidade |
-|---------|---------|---------|
-| **Tailwind CSS** | 3.4.17 | CSS Utilitário |
-| **Shadcn/UI** | Mais Recente | Biblioteca de Componentes (Radix UI) |
-| **Lucide React** | 0.462.0 | Biblioteca de Ícones |
-| **next-themes** | 0.3.0 | Suporte Modo Escuro |
+| Biblioteca       | Versão       | Finalidade                           |
+| ---------------- | ------------ | ------------------------------------ |
+| **Tailwind CSS** | 3.4.17       | CSS Utilitário                       |
+| **Shadcn/UI**    | Mais Recente | Biblioteca de Componentes (Radix UI) |
+| **Lucide React** | 0.462.0      | Biblioteca de Ícones                 |
+| **next-themes**  | 0.3.0        | Suporte Modo Escuro                  |
 
 ### Formulários & Validação
 
-| Biblioteca | Versão | Finalidade |
-|---------|---------|---------|
-| **React Hook Form** | 7.61.1 | Gestão de Formulários |
-| **Zod** | 3.25.76 | Validação de Schemas |
-| **@hookform/resolvers** | 3.10.0 | Integração Zod |
+| Biblioteca              | Versão  | Finalidade            |
+| ----------------------- | ------- | --------------------- |
+| **React Hook Form**     | 7.61.1  | Gestão de Formulários |
+| **Zod**                 | 3.25.76 | Validação de Schemas  |
+| **@hookform/resolvers** | 3.10.0  | Integração Zod        |
 
 ### Conteúdo & Formatação
 
-| Biblioteca | Versão | Finalidade |
-|---------|---------|---------|
-| **react-markdown** | 10.1.0 | Renderização Markdown |
-| **prism-react-renderer** | 2.4.1 | Syntax Highlighting |
-| **date-fns** | 3.6.0 | Formatação de Datas |
+| Biblioteca               | Versão | Finalidade            |
+| ------------------------ | ------ | --------------------- |
+| **react-markdown**       | 10.1.0 | Renderização Markdown |
+| **prism-react-renderer** | 2.4.1  | Syntax Highlighting   |
+| **date-fns**             | 3.6.0  | Formatação de Datas   |
 
 ### SEO & Analytics
 
-| Biblioteca | Versão | Finalidade |
-|---------|---------|---------|
-| **react-helmet-async** | 2.0.5 | Meta Tags Dinâmicas |
-| **Google Analytics** | - | Analytics de Utilizadores |
+| Biblioteca             | Versão | Finalidade                |
+| ---------------------- | ------ | ------------------------- |
+| **react-helmet-async** | 2.0.5  | Meta Tags Dinâmicas       |
+| **Google Analytics**   | -      | Analytics de Utilizadores |
 
 ### HTTP & API
 
-| Biblioteca | Versão | Finalidade |
-|---------|---------|---------|
-| **Axios** | 1.13.2 | Cliente HTTP |
+| Biblioteca | Versão | Finalidade   |
+| ---------- | ------ | ------------ |
+| **Axios**  | 1.13.2 | Cliente HTTP |
 
 ---
 
@@ -211,6 +211,7 @@ alldev-frontend/
 ### Stores Zustand
 
 #### `authStore.ts`
+
 Gere o estado de autenticação do utilizador, tokens JWT e dados do perfil.
 
 ```typescript
@@ -225,22 +226,25 @@ interface AuthState {
 ```
 
 #### `themeStore.ts`
+
 Gere as preferências de modo escuro/claro com persistência em localStorage.
 
 ```typescript
 interface ThemeState {
-  theme: 'dark' | 'light';
+  theme: "dark" | "light";
   toggleTheme: () => void;
-  setTheme: (theme: 'dark' | 'light') => void;
+  setTheme: (theme: "dark" | "light") => void;
 }
 ```
 
 #### `maintenanceStore.ts`
+
 Controla a exibição do modo de manutenção para utilizadores não-admin.
 
 ### TanStack Query
 
 Utilizado para:
+
 - **Caching de Estado do Servidor**
 - **Refetching Automático**
 - **Atualizações Otimistas** (votação)
@@ -253,45 +257,45 @@ Utilizado para:
 
 ### Rotas Públicas
 
-| Caminho | Componente | Descrição |
-|------|-----------|-------------|
-| `/` | Feed | Página inicial com posts |
-| `/login` | Login | Autenticação |
-| `/register` | Register | Registo de utilizador |
-| `/post/:slug` | PostDetails | Detalhes do post |
-| `/user/:username` | UserProfile | Perfil de utilizador |
-| `/tags` | Tags | Diretório de tags |
-| `/search` | Search | Página de pesquisa |
-| `/privacy` | PrivacyPolicy | Política de privacidade |
-| `/terms` | TermsOfUse | Termos de utilização |
-| `/cookies` | CookiePolicy | Política de cookies |
+| Caminho           | Componente    | Descrição                |
+| ----------------- | ------------- | ------------------------ |
+| `/`               | Feed          | Página inicial com posts |
+| `/login`          | Login         | Autenticação             |
+| `/register`       | Register      | Registo de utilizador    |
+| `/post/:slug`     | PostDetails   | Detalhes do post         |
+| `/user/:username` | UserProfile   | Perfil de utilizador     |
+| `/tags`           | Tags          | Diretório de tags        |
+| `/search`         | Search        | Página de pesquisa       |
+| `/privacy`        | PrivacyPolicy | Política de privacidade  |
+| `/terms`          | TermsOfUse    | Termos de utilização     |
+| `/cookies`        | CookiePolicy  | Política de cookies      |
 
 ### Rotas Protegidas (Autenticadas)
 
-| Caminho | Componente | Role Necessário |
-|------|-----------|---------------|
-| `/posts/new` | CreatePost | Utilizador |
-| `/posts/:id/edit` | EditPost | Utilizador (autor) |
-| `/profile/edit` | EditProfile | Utilizador |
+| Caminho           | Componente  | Role Necessário    |
+| ----------------- | ----------- | ------------------ |
+| `/posts/new`      | CreatePost  | Utilizador         |
+| `/posts/:id/edit` | EditPost    | Utilizador (autor) |
+| `/profile/edit`   | EditProfile | Utilizador         |
 
 ### Rotas Admin
 
-| Caminho | Componente | Role Necessário |
-|------|-----------|---------------|
-| `/admin` | AdminDashboard | Admin |
-| `/admin/users` | AdminUsers | Admin |
-| `/admin/posts` | AdminPosts | Admin |
-| `/admin/tags` | AdminTags | Admin |
-| `/admin/settings` | AdminSettings | Admin |
+| Caminho                | Componente        | Role Necessário |
+| ---------------------- | ----------------- | --------------- |
+| `/admin`               | AdminDashboard    | Admin           |
+| `/admin/users`         | AdminUsers        | Admin           |
+| `/admin/posts`         | AdminPosts        | Admin           |
+| `/admin/tags`          | AdminTags         | Admin           |
+| `/admin/settings`      | AdminSettings     | Admin           |
 | `/admin/cookie-policy` | AdminCookiePolicy | Admin/Moderador |
 
 ### Rotas Moderador
 
-| Caminho | Componente | Role Necessário |
-|------|-----------|---------------|
-| `/moderator` | ModeratorDashboard | Moderador |
-| `/moderator/posts` | ModeratorPosts | Moderador |
-| `/moderator/reports` | ModeratorReports | Moderador |
+| Caminho              | Componente         | Role Necessário |
+| -------------------- | ------------------ | --------------- |
+| `/moderator`         | ModeratorDashboard | Moderador       |
+| `/moderator/posts`   | ModeratorPosts     | Moderador       |
+| `/moderator/reports` | ModeratorReports   | Moderador       |
 
 ---
 
@@ -302,7 +306,7 @@ Utilizado para:
 Utilizando `react-helmet-async`, cada página tem meta tags únicas:
 
 ```tsx
-<Seo 
+<Seo
   title="Feed da Comunidade"
   description="Descubra discussões e ajude outros programadores"
 />
@@ -323,6 +327,7 @@ Utilizando `react-helmet-async`, cada página tem meta tags únicas:
 ### Dados Estruturados
 
 Schema JSON-LD para:
+
 - **WebSite** (ação de pesquisa)
 - **Organization** (informação de contacto)
 
@@ -361,6 +366,7 @@ Todos os pedidos `/api/*` são redirecionados para o backend VPS em `api.alldev.
 ### Variáveis de Ambiente (Vercel)
 
 Configuradas no painel da Vercel:
+
 - `VITE_API_URL` - URL da API do backend
 
 ### Processo de Deployment
@@ -422,17 +428,13 @@ VITE_API_URL=http://localhost:3001/api
 📧 Email: [geral@alldev.pt](mailto:geral@alldev.pt)  
 🌐 Website: [https://alldev.pt](https://alldev.pt)
 💼 LinkedIn: [linkedin.com/in/mamadusama](https://linkedin.com/in/mamadusama)  
-🐙 GitHub: [@mamadusama](https://github.com/mamadusama)
+🐙 GitHub: [@mamadu-sama](https://github.com/mamadu-sama)
 
 ### Suporte
 
 Para reportar bugs e solicitar funcionalidades, por favor abra uma issue no GitHub ou contacte via email.
 
 ---
-
-## 📄 Licença
-
-Este projeto é software proprietário. Todos os direitos reservados.
 
 ---
 
