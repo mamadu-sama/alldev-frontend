@@ -141,11 +141,20 @@ export default function PostDetails() {
     try {
       const response = await voteService.voteComment(commentId, voteType);
 
-      // Atualizar comentário localmente
-      setComments(comments.map(c => {
-        if (c.id !== commentId) return c;
-        return { ...c, votes: response.votes, userVote: response.userVote };
-      }));
+      // Atualizar comentário localmente de forma recursiva (Timeline)
+      const updateVoteRecursively = (commentList: Comment[]): Comment[] => {
+        return commentList.map(c => {
+          if (c.id === commentId) {
+            return { ...c, votes: response.votes, userVote: response.userVote };
+          }
+          if (c.replies && c.replies.length > 0) {
+            return { ...c, replies: updateVoteRecursively(c.replies) };
+          }
+          return c;
+        });
+      };
+
+      setComments(prevComments => updateVoteRecursively(prevComments));
     } catch (error) {
       toast({
         title: 'Erro ao votar',
@@ -231,7 +240,8 @@ export default function PostDetails() {
       });
 
       // Adicionar comentário à lista
-      setComments([...comments, createdComment]);
+      const commentWithReplies = { ...createdComment, replies: [] };
+      setComments(prev => [commentWithReplies, ...prev]);
       setNewComment('');
 
       toast({ title: 'Comentário adicionado!' });
@@ -271,9 +281,28 @@ export default function PostDetails() {
         parentId: replyingTo.id,
       });
 
-      // Recarregar comentários para obter a estrutura atualizada
-      const commentsResponse = await commentService.getComments(post.id);
-      setComments(commentsResponse.data);
+      // Tentar atualizar localmente primeiro para performance e feedback visual instantâneo
+      const updateRepliesLocally = (commentList: Comment[]): Comment[] => {
+        return commentList.map(c => {
+          // Se for o comentário ao qual estamos respondendo
+          if (c.id === replyingTo.id) {
+            return {
+              ...c,
+              replies: [...(c.replies || []), createdReply]
+            };
+          }
+          // Caso contrário, procurar nas respostas deste comentário (recursivo)
+          if (c.replies && c.replies.length > 0) {
+            return {
+              ...c,
+              replies: updateRepliesLocally(c.replies)
+            };
+          }
+          return c;
+        });
+      };
+
+      setComments(prevComments => updateRepliesLocally(prevComments));
 
       setReplyContent('');
       setReplyingTo(null);

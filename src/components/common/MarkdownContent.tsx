@@ -64,7 +64,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
       components={{
         code({ node, className, children, ...props }) {
           const isInline = !className;
-          
+
           if (isInline) {
             return (
               <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
@@ -141,19 +141,19 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
         },
         img({ src, alt }) {
           return (
-            <div className="my-4">
+            <span className="block my-4">
               <img
                 src={src}
                 alt={alt || 'Image'}
-                className="max-w-full h-auto rounded-lg border border-border shadow-sm"
+                className="max-w-full h-auto rounded-lg border border-border shadow-sm mx-auto"
                 loading="lazy"
               />
               {alt && (
-                <p className="text-sm text-muted-foreground text-center mt-2 italic">
+                <span className="block text-sm text-muted-foreground text-center mt-2 italic">
                   {alt}
-                </p>
+                </span>
               )}
-            </div>
+            </span>
           );
         },
       }}
