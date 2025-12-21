@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 interface CommentItemProps {
   comment: Comment;
   isPostAuthor?: boolean;
-  isCommentAuthor?: boolean;
+  currentUserId?: string;
   canAccept?: boolean;
   isAuthenticated?: boolean;
   depth?: number;
@@ -27,7 +27,7 @@ interface CommentItemProps {
 export function CommentItem({
   comment,
   isPostAuthor,
-  isCommentAuthor,
+  currentUserId,
   canAccept,
   isAuthenticated,
   depth = 0,
@@ -41,6 +41,8 @@ export function CommentItem({
   const getInitials = (username: string) => {
     return username.slice(0, 2).toUpperCase();
   };
+
+  const isCommentAuthor = currentUserId === comment.author.id;
 
   const timeAgo = formatDistanceToNow(new Date(comment.createdAt), {
     addSuffix: true,
@@ -152,7 +154,7 @@ export function CommentItem({
                 <Button
                   variant="ghost"
                   size="iconSm"
-                  onClick={() => onReport(comment.id)}
+                  onClick={() => onReport?.(comment.id)}
                   title="Denunciar comentário"
                 >
                   <Flag className="h-4 w-4" />
@@ -204,7 +206,7 @@ export function CommentItem({
                   key={reply.id}
                   comment={reply}
                   isPostAuthor={isPostAuthor}
-                  isCommentAuthor={reply.author.id === comment.author.id}
+                  currentUserId={currentUserId}
                   canAccept={false}
                   isAuthenticated={isAuthenticated}
                   depth={depth + 1}
@@ -217,6 +219,7 @@ export function CommentItem({
               ))}
             </div>
           )}
+
         </div>
       </div>
     </div>

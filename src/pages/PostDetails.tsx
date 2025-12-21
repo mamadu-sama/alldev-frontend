@@ -50,6 +50,15 @@ export default function PostDetails() {
   const [replyingTo, setReplyingTo] = useState<{ id: string; username: string } | null>(null);
   const [replyContent, setReplyContent] = useState('');
 
+  // Comment edit/delete states
+  const [commentToDeleteId, setCommentToDeleteId] = useState<string | null>(null);
+  const [isCommentDeleteDialogOpen, setIsCommentDeleteDialogOpen] = useState(false);
+  const [isCommentDeleting, setIsCommentDeleting] = useState(false);
+  const [editingComment, setEditingComment] = useState<Comment | null>(null);
+  const [isEditCommentDialogOpen, setIsEditCommentDialogOpen] = useState(false);
+  const [editCommentContent, setEditCommentContent] = useState('');
+  const [isEditingComment, setIsEditingComment] = useState(false);
+
   // Load post from API
   useEffect(() => {
     const loadPost = async () => {
@@ -61,7 +70,7 @@ export default function PostDetails() {
         setPost(fetchedPost);
         setPostVotes(fetchedPost.votes);
         setUserVote(fetchedPost.userVote);
-        
+
         // Load comments
         if (fetchedPost.id) {
           const commentsResponse = await commentService.getComments(fetchedPost.id);
@@ -131,7 +140,7 @@ export default function PostDetails() {
 
     try {
       const response = await voteService.voteComment(commentId, voteType);
-      
+
       // Atualizar comentário localmente
       setComments(comments.map(c => {
         if (c.id !== commentId) return c;
@@ -149,7 +158,7 @@ export default function PostDetails() {
   const handleReportComment = (commentId: string) => {
     const comment = comments.find(c => c.id === commentId);
     if (!comment) return;
-    
+
     setReportTarget({
       type: 'comment',
       id: commentId,
@@ -160,7 +169,7 @@ export default function PostDetails() {
 
   const handleReportPost = () => {
     if (!post) return;
-    
+
     setReportTarget({
       type: 'post',
       id: post.id,
@@ -177,28 +186,28 @@ export default function PostDetails() {
 
     try {
       await commentService.acceptComment(commentId);
-      
+
       // Atualizar comentários localmente
       setComments(comments.map(c => ({
         ...c,
         isAccepted: c.id === commentId,
       })));
-      
+
       // Atualizar post
       if (post) {
         setPost({ ...post, hasAcceptedAnswer: true });
       }
-      
-      toast({ 
-        title: 'Resposta aceita!', 
-        description: 'O autor ganhou +25 de reputação e você ganhou +2.' 
+
+      toast({
+        title: 'Resposta aceita!',
+        description: 'O autor ganhou +25 de reputação e você ganhou +2.'
       });
     } catch (error) {
       const errorMessage =
         error instanceof Error && 'response' in error
           ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
           : 'Não foi possível aceitar a resposta.';
-      
+
       toast({
         title: 'Erro ao aceitar resposta',
         description: errorMessage || 'Não foi possível aceitar a resposta.',
@@ -224,14 +233,14 @@ export default function PostDetails() {
       // Adicionar comentário à lista
       setComments([...comments, createdComment]);
       setNewComment('');
-      
+
       toast({ title: 'Comentário adicionado!' });
     } catch (error) {
       const errorMessage =
         error instanceof Error && 'response' in error
           ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
           : 'Não foi possível adicionar o comentário.';
-      
+
       toast({
         title: 'Erro ao adicionar comentário',
         description: errorMessage || 'Não foi possível adicionar o comentário.',
@@ -265,17 +274,17 @@ export default function PostDetails() {
       // Recarregar comentários para obter a estrutura atualizada
       const commentsResponse = await commentService.getComments(post.id);
       setComments(commentsResponse.data);
-      
+
       setReplyContent('');
       setReplyingTo(null);
-      
+
       toast({ title: 'Resposta adicionada!' });
     } catch (error) {
       const errorMessage =
         error instanceof Error && 'response' in error
           ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
           : 'Não foi possível adicionar a resposta.';
-      
+
       toast({
         title: 'Erro ao adicionar resposta',
         description: errorMessage || 'Não foi possível adicionar a resposta.',
@@ -302,19 +311,19 @@ export default function PostDetails() {
 
     try {
       await postService.deletePost(post.id);
-      
-      toast({ 
-        title: 'Post deletado!', 
-        description: 'Seu post foi removido com sucesso.' 
+
+      toast({
+        title: 'Post deletado!',
+        description: 'Seu post foi removido com sucesso.'
       });
-      
+
       navigate('/');
     } catch (error) {
       const errorMessage =
         error instanceof Error && 'response' in error
           ? (error as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
           : 'Não foi possível deletar o post.';
-      
+
       toast({
         title: 'Erro ao deletar post',
         description: errorMessage || 'Não foi possível deletar o post.',
@@ -326,12 +335,116 @@ export default function PostDetails() {
     }
   };
 
+  const handleDeleteComment = (commentId: string) => {
+    setCommentToDeleteId(commentId);
+    setIsCommentDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteComment = async () => {
+    if (!commentToDeleteId) return;
+
+    setIsCommentDeleting(true);
+
+    try {
+      await commentService.deleteComment(commentToDeleteId);
+
+      // Remover comentário localmente (incluindo respostas)
+      const removeCommentFromList = (commentList: Comment[]): Comment[] => {
+        return commentList
+          .filter(c => c.id !== commentToDeleteId)
+          .map(c => ({
+            ...c,
+            replies: c.replies ? removeCommentFromList(c.replies) : []
+          }));
+      };
+
+      setComments(removeCommentFromList(comments));
+
+      toast({
+        title: 'Comentário removido!',
+        description: 'O comentário foi removido com sucesso.'
+      });
+    } catch (error) {
+      toast({
+        title: 'Erro ao remover comentário',
+        description: 'Não foi possível remover o comentário. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCommentDeleting(false);
+      setIsCommentDeleteDialogOpen(false);
+      setCommentToDeleteId(null);
+    }
+  };
+
+  const handleEditComment = (commentId: string) => {
+    // Encontrar o comentário (pode estar aninhado)
+    const findComment = (commentList: Comment[]): Comment | undefined => {
+      for (const c of commentList) {
+        if (c.id === commentId) return c;
+        if (c.replies) {
+          const found = findComment(c.replies);
+          if (found) return found;
+        }
+      }
+      return undefined;
+    };
+
+    const comment = findComment(comments);
+    if (!comment) return;
+
+    setEditingComment(comment);
+    setEditCommentContent(comment.content);
+    setIsEditCommentDialogOpen(true);
+  };
+
+  const confirmEditComment = async () => {
+    if (!editingComment || !editCommentContent.trim()) return;
+
+    setIsEditingComment(true);
+
+    try {
+      const updatedComment = await commentService.updateComment(editingComment.id, {
+        content: editCommentContent,
+      });
+
+      // Atualizar comentário localmente
+      const updateCommentInList = (commentList: Comment[]): Comment[] => {
+        return commentList.map(c => {
+          if (c.id === editingComment.id) {
+            return { ...c, content: updatedComment.content, updatedAt: updatedComment.updatedAt };
+          }
+          if (c.replies) {
+            return { ...c, replies: updateCommentInList(c.replies) };
+          }
+          return c;
+        });
+      };
+
+      setComments(updateCommentInList(comments));
+
+      toast({
+        title: 'Comentário atualizado!',
+        description: 'Suas alterações foram salvas.'
+      });
+      setIsEditCommentDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Erro ao atualizar comentário',
+        description: 'Não foi possível salvar as alterações. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsEditingComment(false);
+    }
+  };
+
   // Sort comments
   const sortedComments = [...comments].sort((a, b) => {
     // Accepted answer always first
     if (a.isAccepted) return -1;
     if (b.isAccepted) return 1;
-    
+
     switch (sortBy) {
       case 'votes':
         return b.votes - a.votes;
@@ -420,9 +533,9 @@ export default function PostDetails() {
                     <Pencil className="h-4 w-4" />
                     Editar
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="gap-2 text-destructive hover:text-destructive"
                     onClick={handleDeletePost}
                   >
@@ -432,9 +545,9 @@ export default function PostDetails() {
                 </>
               )}
               {!isAuthor && isAuthenticated && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="gap-2"
                   onClick={handleReportPost}
                 >
@@ -471,8 +584,8 @@ export default function PostDetails() {
           <Card className="p-4 border-primary/50">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-medium">Respondendo a @{replyingTo.username}</h3>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={() => {
                   setReplyingTo(null);
@@ -489,8 +602,8 @@ export default function PostDetails() {
               minHeight="min-h-32"
             />
             <div className="flex justify-end mt-3">
-              <Button 
-                variant="gradient" 
+              <Button
+                variant="gradient"
                 onClick={handleSubmitReply}
                 disabled={isSubmitting || !replyContent.trim()}
               >
@@ -511,8 +624,8 @@ export default function PostDetails() {
               minHeight="min-h-32"
             />
             <div className="flex justify-end mt-3">
-              <Button 
-                variant="gradient" 
+              <Button
+                variant="gradient"
                 onClick={handleSubmitComment}
                 disabled={isSubmitting || !newComment.trim()}
               >
@@ -536,12 +649,14 @@ export default function PostDetails() {
               key={comment.id}
               comment={comment}
               isPostAuthor={isAuthor}
-              isCommentAuthor={user?.id === comment.author.id}
+              currentUserId={user?.id}
               canAccept={!hasAcceptedAnswer}
               isAuthenticated={isAuthenticated}
               depth={0}
               onVote={handleCommentVote}
               onAccept={handleAcceptAnswer}
+              onEdit={handleEditComment}
+              onDelete={handleDeleteComment}
               onReport={isAuthenticated && user?.id !== comment.author.id ? handleReportComment : undefined}
               onReply={handleReplyToComment}
             />
@@ -577,6 +692,72 @@ export default function PostDetails() {
             >
               {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Deletar Post
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Comment Delete Confirmation Dialog */}
+      <Dialog open={isCommentDeleteDialogOpen} onOpenChange={setIsCommentDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Confirmar Exclusão
+            </DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja remover este comentário? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsCommentDeleteDialogOpen(false)}
+              disabled={isCommentDeleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteComment}
+              disabled={isCommentDeleting}
+            >
+              {isCommentDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Remover Comentário
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Comment Dialog */}
+      <Dialog open={isEditCommentDialogOpen} onOpenChange={setIsEditCommentDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Comentário</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <MarkdownEditor
+              value={editCommentContent}
+              onChange={setEditCommentContent}
+              placeholder="Edite seu comentário..."
+              minHeight="min-h-32"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditCommentDialogOpen(false)}
+              disabled={isEditingComment}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="gradient"
+              onClick={confirmEditComment}
+              disabled={isEditingComment || !editCommentContent.trim()}
+            >
+              {isEditingComment && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar Alterações
             </Button>
           </DialogFooter>
         </DialogContent>
